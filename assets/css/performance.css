@@ -1,0 +1,68 @@
+/* Performance optimizations for SkyWay Airlines */
+
+/* Smooth page transitions */
+.page-transition {
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+body {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+/* Image placeholders while loading */
+img.lazy {
+  opacity: 0;
+  transition: opacity 0.3s ease-in;
+}
+
+img:not(.lazy) {
+  opacity: 1;
+}
+
+/* Skeleton loading screens */
+.skeleton-loader {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+  height: 200px;
+  width: 100%;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Optimize display of large elements */
+.hero-section {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.destination-card img, 
+.special-offer-card {
+  will-change: transform;
+}
+
+/* Speed up animations */
+.btn {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Optimize font loading */
+@font-face {
+  font-family: 'SkyWay';
+  font-display: swap;
+}
+
+/* Optimize main content paint */
+.card, .destination-card, .special-offer-card {
+  contain: content;
+}
