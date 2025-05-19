@@ -377,10 +377,39 @@ $today = date('Y-m-d');
         <?php endif; ?>
     </div>
     <!-- Footer -->
-    <!-- Footer -->../includes/footer.php'; ?>
     <?php include '../includes/footer.php'; ?>
+
     <!-- Bootstrap JS -->
-    <!-- Bootstrap JS -->cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Handle broken destination images -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all destination images
+            const destImages = document.querySelectorAll('.destination-img, .popular-destination-img');
+            
+            // For each image, add an error handler
+            destImages.forEach(img => {
+                img.onerror = function() {
+                    // Try with different fallback options
+                    const destination = img.getAttribute('data-destination') || 'destination';
+                    
+                    // Option 1: Try using a placeholder image service
+                    this.src = `https://source.unsplash.com/300x200/?${destination},travel,city`;
+                    
+                    // Option 2: If unsplash fails, use a placeholder.com image
+                    this.onerror = function() {
+                        this.src = `https://via.placeholder.com/300x200/DEDEDE/333333?text=${destination}`;
+                        
+                        // Final fallback if all else fails
+                        this.onerror = function() {
+                            this.src = '../assets/images/placeholder-destination.jpg';
+                            this.onerror = null; // Prevent infinite loop
+                        };
+                    };
+                };
+            });
+        });
+    </script>
 </body>
 </html>
