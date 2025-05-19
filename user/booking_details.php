@@ -816,6 +816,38 @@ $can_cancel = $booking['booking_status'] != 'cancelled' && $booking['booking_sta
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Cancel booking form handling
+            const cancelForm = document.getElementById('cancelForm');
+            if (cancelForm) {
+                cancelForm.addEventListener('submit', function(e) {
+                    const cancelReason = document.getElementById('cancel_reason');
+                    const otherReasonDiv = document.getElementById('other_reason_div');
+                    const otherReason = document.getElementById('other_reason');
+                    
+                    // Validate form
+                    if (cancelReason.value === '') {
+                        e.preventDefault();
+                        alert('Please select a cancellation reason');
+                        return false;
+                    }
+                    
+                    if (cancelReason.value === 'Other' && otherReason.value.trim() === '') {
+                        e.preventDefault();
+                        alert('Please specify the other reason for cancellation');
+                        return false;
+                    }
+                    
+                    // Confirm cancellation
+                    if (!confirm('Are you sure you want to cancel this booking? This action cannot be undone.')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    
+                    // Form is valid, allow submission to proceed
+                    return true;
+                });
+            }
+            
             // Show "other reason" textarea when "Other" is selected for cancellation
             var cancelReason = document.getElementById('cancel_reason');
             if (cancelReason) {
@@ -829,18 +861,134 @@ $can_cancel = $booking['booking_status'] != 'cancelled' && $booking['booking_sta
                 });
             }
             
-            // Handle support form submission
-            var supportBtn = document.getElementById('submitSupportBtn');
-            if (supportBtn) {
-                supportBtn.addEventListener('click', function() {
-                    var form = document.getElementById('supportForm');
-                    // In a real application, you would validate and submit the form
-                    // For now, we'll just show a success message
-                    alert('Your message has been sent. Our support team will contact you shortly.');
-                    // Close the modal
-                    var contactModal = bootstrap.Modal.getInstance(document.getElementById('contactModal'));
-                    contactModal.hide();
+            // Handle support form submission via AJAX
+            const supportForm = document.getElementById('supportForm');
+            const submitSupportBtn = document.getElementById('submitSupportBtn');
+            
+            if (submitSupportBtn && supportForm) {
+                submitSupportBtn.addEventListener('click', function() {
+                    // Validate form
+                    const subject = document.getElementById('contact_subject');
+                    const message = document.getElementById('contact_message');
+                    
+                    if (subject.value === '') {
+                        alert('Please select a subject');
+                        subject.focus();
+                        return;
+                    }
+                    
+                    if (message.value.trim() === '') {
+                        alert('Please enter a message');
+                        message.focus();
+                        return;
+                    }
+                    
+                    // Gather form data
+                    const formData = new FormData(supportForm);
+                    
+                    // Create status indicator
+                    const statusDiv = document.createElement('div');
+                    statusDiv.className = 'alert alert-info mt-3';
+                    statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Sending your message...';
+                    supportForm.appendChild(statusDiv);
+                    
+                    // Disable the submit button
+                    submitSupportBtn.disabled = true;
+                    
+                    // In a real application, you would use fetch API to submit the form data
+                    // For this demonstration, we'll simulate an AJAX request
+                    setTimeout(function() {
+                        // Simulate successful submission
+                        statusDiv.className = 'alert alert-success mt-3';
+                        statusDiv.innerHTML = '<i class="fas fa-check-circle me-2"></i> Your message has been sent successfully. Our support team will contact you shortly.';
+                        
+                        // Reset form after a delay
+                        setTimeout(function() {
+                            supportForm.reset();
+                            
+                            // Close the modal
+                            const contactModal = bootstrap.Modal.getInstance(document.getElementById('contactModal'));
+                            contactModal.hide();
+                            
+                            // Remove status div and re-enable button
+                            supportForm.removeChild(statusDiv);
+                            submitSupportBtn.disabled = false;
+                        }, 2000);
+                    }, 1500);
                 });
+            }
+            
+            // Print functionality enhancement for better output
+            const printBtn = document.querySelector('button[onclick="window.print()"]');
+            if (printBtn) {
+                printBtn.addEventListener('click', function(e) {
+                    e.preventDefault(); // Prevent default onclick handler
+                    
+                    // Prepare page for printing
+                    const originalTitle = document.title;
+                    document.title = 'Booking #BK-<?php echo str_pad($booking['booking_id'], 6, '0', STR_PAD_LEFT); ?> - SkyWay Airlines';
+                    
+                    // Add print-specific styles
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        @media print {
+                            body * {
+                                visibility: hidden;
+                            }
+                            .container, .container * {
+                                visibility: visible;
+                            }
+                            .no-print, .no-print * {
+                                display: none !important;
+                            }
+                            .card {
+                                break-inside: avoid;
+                                margin-bottom: 20px;
+                            }
+                            @page {
+                                size: portrait;
+                                margin: 0.5cm;
+                            }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                    
+                    // Add class to elements that shouldn't be printed
+                    document.querySelectorAll('.nav, .navbar, .footer, .dropdown-menu, button').forEach(el => {
+                        if (!el.classList.contains('print-only')) {
+                            el.classList.add('no-print');
+                        }
+                    });
+                    
+                    // Print the page
+                    window.print();
+                    
+                    // Restore title
+                    setTimeout(() => document.title = originalTitle, 100);
+                });
+            }
+            
+            // Check for successful check-in from query parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('checkin') === 'success') {
+                // Show success message for check-in
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                alertDiv.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    Check-in completed successfully! Your boarding pass is now available.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+                
+                // Insert at the top of the page content
+                const container = document.querySelector('.container');
+                container.insertBefore(alertDiv, container.firstChild);
+                
+                // Scroll to the alert
+                window.scrollTo({top: 0, behavior: 'smooth'});
+                
+                // Remove the parameter from the URL
+                window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
             }
         });
     </script>

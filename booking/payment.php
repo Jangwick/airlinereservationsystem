@@ -37,6 +37,9 @@ if ($booking_result->num_rows === 0) {
 
 $booking = $booking_result->fetch_assoc();
 
+// Add this line to provide a default passenger count if missing
+$passenger_count = isset($booking['passenger_count']) ? $booking['passenger_count'] : 1;
+
 // Check if booking is already paid
 if ($booking['payment_status'] === 'completed') {
     header("Location: confirmation.php?booking_id=" . $booking_id);
@@ -393,13 +396,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         <div class="passenger-details mb-3 pb-3 border-bottom">
                             <div class="small text-muted">Passengers</div>
-                            <div class="h6 mb-0"><?php echo $booking['passenger_count']; ?> passenger<?php echo $booking['passenger_count'] > 1 ? 's' : ''; ?></div>
+                            <div class="h6 mb-0"><?php echo $passenger_count; ?> passenger<?php echo $passenger_count > 1 ? 's' : ''; ?></div>
                         </div>
                         
                         <div class="price-breakdown">
                             <div class="d-flex justify-content-between mb-2">
-                                <div>Base fare</div>
-                                <div>$<?php echo number_format($booking['price'] * $booking['passenger_count'], 2); ?></div>
+                                <div>Base fare (<?php echo $passenger_count; ?> passenger<?php echo $passenger_count > 1 ? 's' : ''; ?>)</div>
+                                <div>$<?php echo number_format($booking['price'] * $passenger_count, 2); ?></div>
                             </div>
                             
                             <div class="d-flex justify-content-between mb-2">
@@ -407,10 +410,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div>Included</div>
                             </div>
                             
-                            <?php if ($booking['total_amount'] > ($booking['price'] * $booking['passenger_count'])): ?>
+                            <?php if ($booking['total_amount'] > ($booking['price'] * $passenger_count)): ?>
                                 <div class="d-flex justify-content-between mb-2">
                                     <div>Additional services</div>
-                                    <div>$<?php echo number_format($booking['total_amount'] - ($booking['price'] * $booking['passenger_count']), 2); ?></div>
+                                    <div>$<?php echo number_format($booking['total_amount'] - ($booking['price'] * $passenger_count), 2); ?></div>
                                 </div>
                             <?php endif; ?>
                             

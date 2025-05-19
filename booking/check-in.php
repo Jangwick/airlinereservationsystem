@@ -115,6 +115,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Start transaction
                         $conn->begin_transaction();
                         
+                        // Check if check_in_status column exists in bookings table
+                        $check_in_column_exists = $conn->query("SHOW COLUMNS FROM bookings LIKE 'check_in_status'")->num_rows > 0;
+                        $check_in_time_exists = $conn->query("SHOW COLUMNS FROM bookings LIKE 'check_in_time'")->num_rows > 0;
+                        
+                        // Add the column if it doesn't exist
+                        if (!$check_in_column_exists) {
+                            $conn->query("ALTER TABLE bookings ADD COLUMN check_in_status VARCHAR(20) DEFAULT NULL AFTER booking_status");
+                        }
+                        
+                        if (!$check_in_time_exists) {
+                            $conn->query("ALTER TABLE bookings ADD COLUMN check_in_time DATETIME DEFAULT NULL AFTER check_in_status");
+                        }
+                        
                         // Update booking with check-in status
                         $update_query = "UPDATE bookings SET check_in_status = 'completed', check_in_time = NOW() WHERE booking_id = ?";
                         $update_stmt = $conn->prepare($update_query);
@@ -128,6 +141,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $passengers_table_exists = $conn->query("SHOW TABLES LIKE 'passengers'")->num_rows > 0;
                         
                         if ($passengers_table_exists) {
+                            // Check if seat_number column exists, if not add it
+                            $seat_number_exists = $conn->query("SHOW COLUMNS FROM passengers LIKE 'seat_number'")->num_rows > 0;
+                            
+                            if (!$seat_number_exists) {
+                                // Add seat_number column to passengers table
+                                $conn->query("ALTER TABLE passengers ADD COLUMN seat_number VARCHAR(10) DEFAULT NULL");
+                            }
+                            
                             // Get passengers for this booking
                             $stmt = $conn->prepare("SELECT passenger_id FROM passengers WHERE booking_id = ?");
                             $stmt->bind_param("i", $booking_id);
@@ -202,19 +223,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get eligible bookings for check-in
 $eligible_bookings = [];
-$stmt = $conn->prepare("SELECT b.booking_id, b.check_in_status, f.flight_number, f.airline, f.departure_city, 
-                      f.arrival_city, f.departure_time 
-                      FROM bookings b 
-                      JOIN flights f ON b.flight_id = f.flight_id 
-                      WHERE b.user_id = ? AND b.booking_status = 'confirmed' 
-                      AND f.departure_time > NOW() 
-                      AND f.departure_time < DATE_ADD(NOW(), INTERVAL 2 DAY)
-                      ORDER BY f.departure_time ASC");
+
+// First check if check_in_status column exists in bookings table
+$check_in_column_exists = false;
+$column_result = $conn->query("SHOW COLUMNS FROM bookings LIKE 'check_in_status'");
+if ($column_result && $column_result->num_rows > 0) {
+    $check_in_column_exists = true;
+}
+
+// Prepare the appropriate query based on column existence
+if ($check_in_column_exists) {
+    $stmt = $conn->prepare("SELECT b.booking_id, b.check_in_status, f.flight_number, f.airline, f.departure_city, 
+                          f.arrival_city, f.departure_time 
+                          FROM bookings b 
+                          JOIN flights f ON b.flight_id = f.flight_id 
+                          WHERE b.user_id = ? AND b.booking_status = 'confirmed' 
+                          AND f.departure_time > NOW() 
+                          AND f.departure_time < DATE_ADD(NOW(), INTERVAL 2 DAY)
+                          ORDER BY f.departure_time ASC");
+} else {
+    $stmt = $conn->prepare("SELECT b.booking_id, f.flight_number, f.airline, f.departure_city, 
+                          f.arrival_city, f.departure_time 
+                          FROM bookings b 
+                          JOIN flights f ON b.flight_id = f.flight_id 
+                          WHERE b.user_id = ? AND b.booking_status = 'confirmed' 
+                          AND f.departure_time > NOW() 
+                          AND f.departure_time < DATE_ADD(NOW(), INTERVAL 2 DAY)
+                          ORDER BY f.departure_time ASC");
+}
+
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $eligible_result = $stmt->get_result();
 
 while ($eligible = $eligible_result->fetch_assoc()) {
+    // If check_in_status doesn't exist in the query result, add a default value
+    if (!isset($eligible['check_in_status'])) {
+        $eligible['check_in_status'] = null;
+    }
     $eligible_bookings[] = $eligible;
 }
 ?>
