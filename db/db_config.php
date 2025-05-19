@@ -1,91 +1,44 @@
 <?php
 // Database configuration with fallback mechanisms
-$server = "localhost";  // Try default first, most common configuration
+$server = "localhost:3307";  // Try default first, most common configuration
 $username = "root";
 $password = "";
 $database = "airline_reservation_system";
 
-// Global connection variable
-$conn = null;
-$connection_error = null;
+// Create connection only once per request
+if (!isset($GLOBALS['db_conn']) || !$GLOBALS['db_conn']) {
+    $conn = new mysqli($server, $username, $password, $database);
 
-// Function to get database connection
-function getConnection() {
-    global $conn, $server, $username, $password, $database, $connection_error;
-    
-    // If connection already exists, return it
-    if ($conn !== null && !$conn->connect_error) {
-        return $conn;
+    // Check connection
+    if ($conn->connect_error) {
+        error_log("Connection failed: " . $conn->connect_error);
+        // Don't expose error details to end users
+        //die("Connection failed: " . $conn->connect_error);
     }
     
-    // List of servers to try (without persistent connection prefix)
-    $servers_to_try = [
-        "localhost", 
-        "127.0.0.1",
-        "localhost:3306",
-        "localhost:3307"
-    ];
+    // Set charset to ensure proper encoding
+    $conn->set_charset("utf8mb4");
     
-    // Try each server configuration
-    foreach ($servers_to_try as $test_server) {
-        try {
-            // Try without persistent connection for reliability
-            $temp_conn = new mysqli($test_server, $username, $password, $database);
-            
-            // Check connection
-            if (!$temp_conn->connect_error) {
-                // Connection successful
-                $conn = $temp_conn;
-                $server = $test_server;
-                
-                // Set charset to utf8mb4 for better performance and compatibility
-                $conn->set_charset('utf8mb4');
-                return $conn;
-            }
-            
-            // Close the failed connection
-            $temp_conn->close();
-        } catch (Exception $e) {
-            // Continue to next server on exception
-            $connection_error = $e->getMessage();
-            continue;
-        }
-    }
-    
-    // If we reach here, no connection worked - try to connect without database selection
-    // This is useful for initial setup where the database might not exist yet
-    foreach ($servers_to_try as $test_server) {
-        try {
-            $temp_conn = new mysqli($test_server, $username, $password);
-            
-            if (!$temp_conn->connect_error) {
-                $conn = $temp_conn;
-                $server = $test_server;
-                
-                // Try to select the database
-                if ($conn->select_db($database)) {
-                    $conn->set_charset('utf8mb4');
-                    return $conn;
-                }
-                
-                // Database doesn't exist, but connection works
-                return $conn;
-            }
-            
-            $temp_conn->close();
-        } catch (Exception $e) {
-            $connection_error = $e->getMessage();
-            continue;
-        }
-    }
-    
-    // If we reach here, all connection attempts failed
-    $connection_error = "Failed to connect to MySQL server on any available host.";
-    return false;
+    // Store connection in global scope to reuse
+    $GLOBALS['db_conn'] = $conn;
+} else {
+    $conn = $GLOBALS['db_conn'];
 }
 
-// Initialize the connection
-$conn = getConnection();
+// Enable mysqli connection caching for persistent connections
+$conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 5);
+
+// Function to safely close the connection when done
+function closeDBConnection() {
+    global $conn;
+    if (isset($conn) && $conn) {
+        $conn->close();
+        $GLOBALS['db_conn'] = null;
+    }
+}
+
+// Register shutdown function to automatically close connection
+register_shutdown_function('closeDBConnection');
 
 // If this file is accessed directly, show connection status
 if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {

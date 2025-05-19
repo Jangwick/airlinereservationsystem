@@ -134,3 +134,33 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.remove('page-transition');
     });
 });
+
+// Defer non-critical scripts
+function deferScript(url) {
+    const script = document.createElement('script');
+    script.src = url;
+    script.defer = true;
+    document.body.appendChild(script);
+}
+
+// Add preconnect for external domains to improve loading times
+function addPreconnect(url) {
+    const link = document.createElement('link');
+    link.rel = 'preconnect';
+    link.href = url;
+    link.crossOrigin = 'anonymous';
+    document.head.appendChild(link);
+}
+
+// Debounce function to limit how often a function can run
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}

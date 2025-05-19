@@ -25,53 +25,55 @@ function getDBConnection($force_new = false) {
  * Cache query results to avoid repeated database calls
  */
 function cachedQuery($sql, $params = [], $ttl = 300) {
-    static $cache = [];
-    
-    // Generate cache key based on query and parameters
+    $conn = getDBConnection();
     $cache_key = md5($sql . serialize($params));
+    $cache_file = sys_get_temp_dir() . '/sql_cache_' . $cache_key;
     
-    // Check if we have a cached result that hasn't expired
-    if (isset($cache[$cache_key]) && $cache[$cache_key]['expires'] > time()) {
-        return $cache[$cache_key]['data'];
+    // Check if we have a valid cache
+    if (file_exists($cache_file) && (time() - filemtime($cache_file) < $ttl)) {
+        return unserialize(file_get_contents($cache_file));
     }
     
-    // No valid cache, run the actual query
-    $conn = getDBConnection();
+    // No cache or expired, run the query
     $stmt = $conn->prepare($sql);
     
     if (!empty($params)) {
         $types = '';
-        $values = [];
+        $bindParams = [];
         
         foreach ($params as $param) {
             if (is_int($param)) {
                 $types .= 'i';
             } elseif (is_double($param)) {
                 $types .= 'd';
-            } elseif (is_string($param)) {
-                $types .= 's';
             } else {
-                $types .= 'b';
+                $types .= 's';
             }
-            $values[] = $param;
+            $bindParams[] = $param;
         }
         
-        $stmt->bind_param($types, ...$values);
+        // Create the full array of parameters for bind_param
+        $bindParamsRef = [];
+        $bindParamsRef[] = $types;
+        
+        foreach ($bindParams as $key => $value) {
+            $bindParamsRef[] = &$bindParams[$key];
+        }
+        
+        call_user_func_array([$stmt, 'bind_param'], $bindParamsRef);
     }
     
     $stmt->execute();
     $result = $stmt->get_result();
     
+    // Fetch all results
     $data = [];
     while ($row = $result->fetch_assoc()) {
         $data[] = $row;
     }
     
-    // Cache the result
-    $cache[$cache_key] = [
-        'data' => $data,
-        'expires' => time() + $ttl
-    ];
+    // Store in cache
+    file_put_contents($cache_file, serialize($data));
     
     return $data;
 }
@@ -80,10 +82,18 @@ function cachedQuery($sql, $params = [], $ttl = 300) {
  * Optimize image URLs for faster loading
  */
 function optimizeImageUrl($url, $width = null, $height = null, $quality = 80) {
-    // If using a CDN or image optimization service, you could implement here
-    // For now, let's just prepare the image for lazy loading
+    // Check if we have a URL to optimize
+    if (empty($url)) {
+        return $url;
+    }
     
-    // Return the optimized URL (simply the original for now)
+    // Only optimize local images in the assets directory
+    if (strpos($url, 'assets/images') === false) {
+        return $url;
+    }
+    
+    // TODO: Implement actual image optimization with width, height and quality
+    // This would typically use a library like Intervention Image or a service like Cloudinary
     return $url;
 }
 
@@ -91,18 +101,24 @@ function optimizeImageUrl($url, $width = null, $height = null, $quality = 80) {
  * Clean and optimize output buffer
  */
 function startOutputBuffer() {
-    ob_start('optimizeOutput');
+    ob_start("optimizeOutput");
 }
 
 /**
  * Optimize HTML output by removing whitespace and comments
  */
 function optimizeOutput($buffer) {
-    // Remove comments (except IE conditional comments)
+    // Don't optimize in development mode
+    if (defined('DEVELOPMENT_MODE') && DEVELOPMENT_MODE) {
+        return $buffer;
+    }
+    
+    // Remove comments (but not IE conditional comments)
     $buffer = preg_replace('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '', $buffer);
     
     // Remove whitespace
     $buffer = preg_replace('/\s+/', ' ', $buffer);
+    $buffer = preg_replace('/>\s+</', '><', $buffer);
     
     return $buffer;
 }
@@ -130,14 +146,15 @@ function url($path = '') {
  * Optimize page loading by setting appropriate headers
  */
 function setPerformanceHeaders() {
-    // Set caching headers
-    $cache_time = 60 * 60; // 1 hour
-    header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cache_time) . ' GMT');
-    header('Cache-Control: max-age=' . $cache_time . ', public');
-    
-    // Enable gzip compression if not already handled by Apache
-    if (!in_array('gzip', array_map('trim', explode(',', $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '')))) {
-        ob_start('ob_gzhandler');
+    // Enable gzip compression
+    if (extension_loaded('zlib') && !ini_get('zlib.output_compression')) {
+        ini_set('zlib.output_compression', 'On');
+        ini_set('zlib.output_compression_level', '5');
     }
+    
+    // Set caching headers for browsers
+    header('Cache-Control: private, max-age=3600');
+    header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 3600) . ' GMT');
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($_SERVER['SCRIPT_FILENAME'])) . ' GMT');
 }
 ?>

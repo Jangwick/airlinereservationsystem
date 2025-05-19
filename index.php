@@ -364,10 +364,13 @@ if ($dbConfigExists) {
     <!-- Footer -->
     <?php include 'includes/footer.php'; ?>
 
-    <!-- Optimize JavaScript loading -->
-    <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js" integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO" crossorigin="anonymous"></script>
+    <!-- Ensure Bootstrap JS loads first and isn't deferred -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Custom JS - load with lower priority -->
+    <!-- Dropdown fix script -->
+    <script src="assets/js/dropdown-fix.js"></script>
+    
+    <!-- These scripts can be deferred -->
     <script defer src="assets/js/main.js"></script>
     <script defer src="assets/js/performance.js"></script>
     

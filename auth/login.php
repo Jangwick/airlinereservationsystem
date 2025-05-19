@@ -3,7 +3,7 @@ session_start();
 
 // If user is already logged in, redirect to appropriate dashboard
 if (isset($_SESSION['user_id'])) {
-    if ($_SESSION['role'] === 'admin') {
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
         header("Location: ../admin/dashboard.php");
     } else {
         header("Location: ../user/dashboard.php");
@@ -44,10 +44,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['last_name'] = $user['last_name'];
                 $_SESSION['role'] = $user['role'];
                 
-                // Redirect based on user role
+                // Redirect based on role
                 if ($user['role'] === 'admin') {
                     header("Location: ../admin/dashboard.php");
                 } else {
+                    // Redirect regular users to user dashboard
                     header("Location: ../user/dashboard.php");
                 }
                 exit();
@@ -56,6 +57,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         } else {
             $error = "User does not exist";
+        }
+    }
+}
+
+// After successful login check for admin to log the login
+if (isset($user) && $user['role'] === 'admin') {
+    // Try to include and use the logging function
+    if (file_exists('../includes/admin_functions.php')) {
+        require_once '../includes/admin_functions.php';
+        if (function_exists('logAdminAction')) {
+            logAdminAction('login', $user['user_id'], "Admin login from " . $_SERVER['REMOTE_ADDR']);
         }
     }
 }
