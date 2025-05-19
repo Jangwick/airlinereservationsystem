@@ -378,8 +378,9 @@ $can_cancel = $booking['booking_status'] != 'cancelled' && $booking['booking_sta
                     <div class="card-body">
                         <div class="d-flex align-items-center mb-3">
                             <div class="flex-shrink-0">
-                                <img src="../assets/images/airlines/<?php echo strtolower($booking['airline']); ?>.png" alt="Airline Logo" 
-                                class="airline-logo" onerror="this.src='../assets/images/airlines/default.png'" width="40">
+                                <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($booking['airline']); ?>&background=0D6EFD&color=fff&size=40&bold=true&format=svg" 
+                                     alt="<?php echo htmlspecialchars($booking['airline']); ?> Logo" 
+                                     width="40" height="40" class="airline-logo">
                             </div>
                             <div class="ms-3">
                                 <h6 class="mb-0"><?php echo htmlspecialchars($booking['airline']); ?></h6>
@@ -632,8 +633,9 @@ $can_cancel = $booking['booking_status'] != 'cancelled' && $booking['booking_sta
                                 <div class="small">Flight <?php echo htmlspecialchars($booking['flight_number']); ?></div>
                             </div>
                             <div>
-                                <img src="../assets/images/airlines/<?php echo strtolower($booking['airline']); ?>.png" alt="Airline Logo" 
-                                class="airline-logo" onerror="this.src='../assets/images/airlines/default.png'" width="40">
+                                <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($booking['airline']); ?>&background=0D6EFD&color=fff&size=40&bold=true&format=svg" 
+                                     alt="<?php echo htmlspecialchars($booking['airline']); ?> Logo" 
+                                     width="40" height="40" class="airline-logo">
                             </div>
                         </div>
                     </div>
