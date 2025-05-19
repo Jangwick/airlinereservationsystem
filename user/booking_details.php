@@ -36,6 +36,9 @@ if ($result->num_rows === 0) {
 
 $booking = $result->fetch_assoc();
 
+// Add this line to define passenger count with a default value
+$passenger_count = isset($booking['passenger_count']) ? $booking['passenger_count'] : 1;
+
 // Check if passengers table exists and get passenger information
 $passengers = [];
 $passengers_table_exists = $conn->query("SHOW TABLES LIKE 'passengers'")->num_rows > 0;
@@ -549,17 +552,17 @@ $can_cancel = $booking['booking_status'] != 'cancelled' && $booking['booking_sta
                                 <table class="table table-borderless">
                                     <tbody>
                                         <tr>
-                                            <td>Base Fare (<?php echo $booking['passenger_count']; ?> passenger<?php echo $booking['passenger_count'] > 1 ? 's' : ''; ?>)</td>
-                                            <td class="text-end">$<?php echo number_format($booking['price'] * $booking['passenger_count'], 2); ?></td>
+                                            <td>Base Fare (<?php echo $passenger_count; ?> passenger<?php echo $passenger_count > 1 ? 's' : ''; ?>)</td>
+                                            <td class="text-end">$<?php echo number_format($booking['price'] * $passenger_count, 2); ?></td>
                                         </tr>
                                         <tr>
                                             <td>Taxes & Fees</td>
                                             <td class="text-end">Included</td>
                                         </tr>
-                                        <?php if ($booking['total_amount'] > ($booking['price'] * $booking['passenger_count'])): ?>
+                                        <?php if ($booking['total_amount'] > ($booking['price'] * $passenger_count)): ?>
                                         <tr>
                                             <td>Additional Services</td>
-                                            <td class="text-end">$<?php echo number_format($booking['total_amount'] - ($booking['price'] * $booking['passenger_count']), 2); ?></td>
+                                            <td class="text-end">$<?php echo number_format($booking['total_amount'] - ($booking['price'] * $passenger_count), 2); ?></td>
                                         </tr>
                                         <?php endif; ?>
                                         <tr class="fw-bold">
