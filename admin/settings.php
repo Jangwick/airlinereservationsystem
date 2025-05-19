@@ -474,15 +474,34 @@ $active_tab = isset($_SESSION['settings_active_tab']) ? $_SESSION['settings_acti
                                     <?php endforeach; ?>
                                     
                                     <div class="mt-4">
-                                        <h5>Maintenance Mode Message</h5>
-                                        <textarea class="form-control" id="maintenance_message" name="settings[maintenance_message]" rows="3"><?php echo getSetting('maintenance_message', 'We are currently performing scheduled maintenance. Please check back soon!'); ?></textarea>
-                                        <div class="form-text">Message to display when maintenance mode is enabled.</div>
+                                        <h5>System Maintenance</h5>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <div class="card border-light">
+                                                    <div class="card-body">
+                                                        <h6 class="card-title">Activity Logs</h6>
+                                                        <p class="card-text small">View and manage administrator activity logs.</p>
+                                                        <a href="admin_logs.php" class="btn btn-outline-primary btn-sm">
+                                                            <i class="fas fa-history me-1"></i> View Activity Logs
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <div class="card border-light">
+                                                    <div class="card-body">
+                                                        <h6 class="card-title">System Cache</h6>
+                                                        <p class="card-text small">Clear cache to refresh system data.</p>
+                                                        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#clearCacheModal">
+                                                            <i class="fas fa-trash-alt me-1"></i> Clear Cache
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     
                                     <div class="mt-4 text-end">
-                                        <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#clearCacheModal">
-                                            Clear Cache
-                                        </button>
                                         <button type="submit" class="btn btn-primary">Save System Settings</button>
                                     </div>
                                 </form>

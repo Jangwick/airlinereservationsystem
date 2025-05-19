@@ -54,6 +54,67 @@ function logAdminAction($action, $entity_id = null, $details = '') {
 }
 
 /**
+ * Check and create admin_logs table if it doesn't exist
+ * 
+ * @return bool True if table exists or was created, false on failure
+ */
+function ensureAdminLogsTable() {
+    global $conn;
+    
+    if (!isset($conn) || !$conn) {
+        return false;
+    }
+    
+    try {
+        $table_check = $conn->query("SHOW TABLES LIKE 'admin_logs'");
+        if ($table_check->num_rows == 0) {
+            $create_table_sql = "CREATE TABLE admin_logs (
+                log_id INT AUTO_INCREMENT PRIMARY KEY,
+                admin_id INT NOT NULL,
+                action VARCHAR(50) NOT NULL,
+                entity_id INT,
+                details TEXT,
+                ip_address VARCHAR(45),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX (admin_id),
+                INDEX (action),
+                INDEX (created_at)
+            )";
+            return $conn->query($create_table_sql);
+        }
+        return true;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+/**
+ * Clean old logs to prevent database bloat
+ * 
+ * @param int $days Number of days to keep logs for (default: 90)
+ * @return bool True on success, false on failure
+ */
+function cleanOldLogs($days = 90) {
+    global $conn;
+    
+    if (!isset($conn) || !$conn) {
+        return false;
+    }
+    
+    try {
+        $table_check = $conn->query("SHOW TABLES LIKE 'admin_logs'");
+        if ($table_check->num_rows > 0) {
+            $stmt = $conn->prepare("DELETE FROM admin_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)");
+            $stmt->bind_param("i", $days);
+            return $stmt->execute();
+        }
+        return true;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+/**
  * Get action description for display
  * 
  * @param string $action Raw action name from database
@@ -77,14 +138,53 @@ function getActionDescription($action) {
         'system_init' => 'System Initialization',
         'login' => 'Admin Login',
         'logout' => 'Admin Logout',
-        'failed_login' => 'Failed Login Attempt'
+        'failed_login' => 'Failed Login Attempt',
+        'export_data' => 'Exported Data',
+        'import_data' => 'Imported Data',
+        'maintenance_mode' => 'Changed Maintenance Mode',
+        'backup_database' => 'Database Backup',
+        'restore_database' => 'Database Restore'
     ];
     
     return isset($actions[$action]) ? $actions[$action] : ucwords(str_replace('_', ' ', $action));
 }
 
 /**
- * Get admin summary statistics
+ * Get color class for action type
+ * 
+ * @param string $action Raw action name from database
+ * @return string Bootstrap color class
+ */
+function getActionColorClass($action) {
+    $color_map = [
+        'add' => 'success',
+        'edit' => 'info',
+        'update' => 'info',
+        'delete' => 'danger',
+        'cancel' => 'danger',
+        'login' => 'primary',
+        'logout' => 'secondary',
+        'failed' => 'danger',
+        'system' => 'warning',
+        'export' => 'primary',
+        'import' => 'warning',
+        'maintenance' => 'warning',
+        'backup' => 'primary',
+        'restore' => 'warning',
+        'clear' => 'warning'
+    ];
+    
+    foreach ($color_map as $key => $color) {
+        if (strpos($action, $key) !== false) {
+            return $color;
+        }
+    }
+    
+    return 'secondary';
+}
+
+/**
+ * Get admin statistics summary
  * 
  * @param int $admin_id ID of admin user (optional)
  * @param string $timeframe Timeframe - 'today', 'week', 'month', 'all' (default)

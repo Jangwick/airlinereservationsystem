@@ -1,132 +1,221 @@
 <?php
 session_start();
 
-// Include functions file for base URL
-require_once '../includes/functions.php';
-$baseUrl = getBaseUrl();
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
 
-// Initialize variables
-$error = '';
-$success = '';
-$booking = null;
-$booking_id = $_GET['booking_id'] ?? null;
+// Include database connection
+require_once '../db/db_config.php';
 
-// If booking ID provided in URL, try to retrieve it
-if ($booking_id) {
-    // Include database connection
-    require_once '../db/db_config.php';
-    
-    // Query to find booking
+$user_id = $_SESSION['user_id'];
+$message = '';
+$message_type = '';
+$booking_id = isset($_GET['booking_id']) ? intval($_GET['booking_id']) : 0;
+
+// If user is checking in for a specific booking
+if ($booking_id > 0) {
+    // Get booking details
     $stmt = $conn->prepare("SELECT b.*, f.flight_number, f.airline, f.departure_city, f.arrival_city, 
-                          f.departure_time, f.arrival_time, f.status as flight_status
+                          f.departure_time, f.arrival_time 
                           FROM bookings b 
                           JOIN flights f ON b.flight_id = f.flight_id 
-                          WHERE b.booking_id = ?");
-    $stmt->bind_param("i", $booking_id);
+                          WHERE b.booking_id = ? AND b.user_id = ? AND b.booking_status = 'confirmed'");
+    $stmt->bind_param("ii", $booking_id, $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
     
-    if ($result->num_rows > 0) {
+    if ($result->num_rows === 0) {
+        $message = "Booking not found or not eligible for check-in.";
+        $message_type = "danger";
+        $booking = null;
+    } else {
         $booking = $result->fetch_assoc();
         
-        // Get tickets for this booking
-        $stmt = $conn->prepare("SELECT * FROM tickets WHERE booking_id = ?");
-        $stmt->bind_param("i", $booking_id);
-        $stmt->execute();
-        $tickets_result = $stmt->get_result();
-        $tickets = [];
+        // Check if check-in is allowed (between 48 hrs before and until departure)
+        $now = new DateTime();
+        $departure = new DateTime($booking['departure_time']);
+        $diff = $now->diff($departure);
         
-        while ($ticket = $tickets_result->fetch_assoc()) {
-            $tickets[] = $ticket;
+        if ($now > $departure) {
+            $message = "Check-in is not available after departure.";
+            $message_type = "danger";
+        } elseif ($diff->days > 2) {
+            $message = "Check-in opens 48 hours before departure.";
+            $message_type = "warning";
+        } else {
+            // Check if already checked in
+            if (isset($booking['check_in_status']) && $booking['check_in_status'] === 'completed') {
+                $message = "You have already checked in for this flight.";
+                $message_type = "info";
+            }
         }
         
-        $booking['tickets'] = $tickets;
-    } else {
-        $error = 'No booking found with this ID.';
+        // Get passenger details if available
+        $passengers = [];
+        $passengers_table_exists = $conn->query("SHOW TABLES LIKE 'passengers'")->num_rows > 0;
+        
+        if ($passengers_table_exists) {
+            $stmt = $conn->prepare("SELECT * FROM passengers WHERE booking_id = ?");
+            $stmt->bind_param("i", $booking_id);
+            $stmt->execute();
+            $passengers_result = $stmt->get_result();
+            
+            while ($passenger = $passengers_result->fetch_assoc()) {
+                $passengers[] = $passenger;
+            }
+        }
     }
 }
 
 // Process check-in form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $booking_reference = $_POST['booking_reference'] ?? '';
-    $last_name = $_POST['last_name'] ?? '';
+    $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
     
-    if (empty($booking_reference) || empty($last_name)) {
-        $error = 'Please enter both booking reference and last name';
+    // Validate booking ID
+    if ($booking_id <= 0) {
+        $message = "Invalid booking ID.";
+        $message_type = "danger";
     } else {
-        // Include database connection
-        if (!isset($conn)) {
-            require_once '../db/db_config.php';
-        }
-        
-        // Query to find booking
-        $stmt = $conn->prepare("SELECT b.*, f.flight_number, f.airline, f.departure_city, f.arrival_city, 
-                              f.departure_time, f.arrival_time, f.status as flight_status, 
-                              u.last_name
-                              FROM bookings b 
+        // Check if booking exists and belongs to user
+        $stmt = $conn->prepare("SELECT b.*, f.departure_time FROM bookings b 
                               JOIN flights f ON b.flight_id = f.flight_id 
-                              JOIN users u ON b.user_id = u.user_id 
-                              WHERE b.booking_id = ? AND u.last_name = ?");
-        $stmt->bind_param("is", $booking_reference, $last_name);
+                              WHERE b.booking_id = ? AND b.user_id = ? AND b.booking_status = 'confirmed'");
+        $stmt->bind_param("ii", $booking_id, $user_id);
         $stmt->execute();
         $result = $stmt->get_result();
         
-        if ($result->num_rows > 0) {
-            $booking = $result->fetch_assoc();
+        if ($result->num_rows === 0) {
+            $message = "Booking not found or not eligible for check-in.";
+            $message_type = "danger";
+        } else {
+            $booking_data = $result->fetch_assoc();
             
-            // Check if flight is eligible for check-in (24h before departure)
-            $departure_time = strtotime($booking['departure_time']);
-            $current_time = time();
-            $time_difference = $departure_time - $current_time;
-            $hours_to_departure = $time_difference / 3600;
+            // Check if check-in is allowed
+            $now = new DateTime();
+            $departure = new DateTime($booking_data['departure_time']);
+            $diff = $now->diff($departure);
             
-            if ($hours_to_departure > 24) {
-                $error = 'Check-in is only available 24 hours before departure.';
-            } elseif ($hours_to_departure < 0) {
-                $error = 'This flight has already departed.';
+            if ($now > $departure) {
+                $message = "Check-in is not available after departure.";
+                $message_type = "danger";
+            } elseif ($diff->days > 2) {
+                $message = "Check-in opens 48 hours before departure.";
+                $message_type = "warning";
             } else {
-                // Get tickets for this booking
-                $stmt = $conn->prepare("SELECT * FROM tickets WHERE booking_id = ?");
-                $stmt->bind_param("i", $booking_reference);
-                $stmt->execute();
-                $tickets_result = $stmt->get_result();
-                $tickets = [];
-                
-                while ($ticket = $tickets_result->fetch_assoc()) {
-                    $tickets[] = $ticket;
-                }
-                
-                $booking['tickets'] = $tickets;
-                
-                // Process check-in (mark tickets as checked-in)
-                if (isset($_POST['check_in']) && $_POST['check_in'] == 'yes') {
-                    $stmt = $conn->prepare("UPDATE tickets SET status = 'active', checked_in = 1, checked_in_time = NOW() WHERE booking_id = ?");
-                    $stmt->bind_param("i", $booking_reference);
-                    
-                    if ($stmt->execute()) {
-                        $success = 'Check-in successful! Your boarding passes are ready.';
+                // Check if already checked in
+                if (isset($booking_data['check_in_status']) && $booking_data['check_in_status'] === 'completed') {
+                    $message = "You have already checked in for this flight.";
+                    $message_type = "info";
+                } else {
+                    // Process check-in
+                    try {
+                        // Start transaction
+                        $conn->begin_transaction();
                         
-                        // Refresh ticket data
-                        $stmt = $conn->prepare("SELECT * FROM tickets WHERE booking_id = ?");
-                        $stmt->bind_param("i", $booking_reference);
-                        $stmt->execute();
-                        $tickets_result = $stmt->get_result();
-                        $tickets = [];
+                        // Update booking with check-in status
+                        $update_query = "UPDATE bookings SET check_in_status = 'completed', check_in_time = NOW() WHERE booking_id = ?";
+                        $update_stmt = $conn->prepare($update_query);
+                        $update_stmt->bind_param("i", $booking_id);
                         
-                        while ($ticket = $tickets_result->fetch_assoc()) {
-                            $tickets[] = $ticket;
+                        if (!$update_stmt->execute()) {
+                            throw new Exception("Error updating check-in status.");
                         }
                         
-                        $booking['tickets'] = $tickets;
-                    } else {
-                        $error = 'Check-in failed. Please try again.';
+                        // Assign random seats if the system has passenger details
+                        $passengers_table_exists = $conn->query("SHOW TABLES LIKE 'passengers'")->num_rows > 0;
+                        
+                        if ($passengers_table_exists) {
+                            // Get passengers for this booking
+                            $stmt = $conn->prepare("SELECT passenger_id FROM passengers WHERE booking_id = ?");
+                            $stmt->bind_param("i", $booking_id);
+                            $stmt->execute();
+                            $passengers_result = $stmt->get_result();
+                            
+                            // Define seat letters and start from row 10
+                            $seat_letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+                            $row_number = 10;
+                            $seat_index = 0;
+                            
+                            while ($passenger = $passengers_result->fetch_assoc()) {
+                                $seat_number = $row_number . $seat_letters[$seat_index];
+                                
+                                // Update passenger with seat number
+                                $seat_query = "UPDATE passengers SET seat_number = ? WHERE passenger_id = ?";
+                                $seat_stmt = $conn->prepare($seat_query);
+                                $seat_stmt->bind_param("si", $seat_number, $passenger['passenger_id']);
+                                $seat_stmt->execute();
+                                
+                                // Move to next seat
+                                $seat_index++;
+                                if ($seat_index >= count($seat_letters)) {
+                                    $seat_index = 0;
+                                    $row_number++;
+                                }
+                            }
+                        }
+                        
+                        // Check if booking_history table exists
+                        $history_check = $conn->query("SHOW TABLES LIKE 'booking_history'");
+                        
+                        if ($history_check->num_rows > 0) {
+                            $history_query = "INSERT INTO booking_history (booking_id, status, status_change, notes, updated_by) 
+                                           VALUES (?, 'checked-in', 'Web check-in completed', 'Online check-in via website', ?)";
+                            $history_stmt = $conn->prepare($history_query);
+                            $history_stmt->bind_param("ii", $booking_id, $user_id);
+                            $history_stmt->execute();
+                        }
+                        
+                        // Create a notification if the table exists
+                        $notification_check = $conn->query("SHOW TABLES LIKE 'notifications'");
+                        
+                        if ($notification_check->num_rows > 0) {
+                            $notification_query = "INSERT INTO notifications (user_id, title, message, type) 
+                                               VALUES (?, 'Check-in Completed', 'You have successfully checked in for your flight. Your boarding pass is ready.', 'check-in')";
+                            $notification_stmt = $conn->prepare($notification_query);
+                            $notification_stmt->bind_param("i", $user_id);
+                            $notification_stmt->execute();
+                        }
+                        
+                        // Commit transaction
+                        $conn->commit();
+                        
+                        $message = "Check-in completed successfully. Your boarding pass is now available.";
+                        $message_type = "success";
+                        
+                        // Redirect to booking details page
+                        header("Location: ../user/booking_details.php?id=$booking_id&checkin=success");
+                        exit();
+                    } catch (Exception $e) {
+                        // Roll back transaction on error
+                        $conn->rollback();
+                        $message = "Error during check-in: " . $e->getMessage();
+                        $message_type = "danger";
                     }
                 }
             }
-        } else {
-            $error = 'No booking found with these details. Please check and try again.';
         }
     }
+}
+
+// Get eligible bookings for check-in
+$eligible_bookings = [];
+$stmt = $conn->prepare("SELECT b.booking_id, b.check_in_status, f.flight_number, f.airline, f.departure_city, 
+                      f.arrival_city, f.departure_time 
+                      FROM bookings b 
+                      JOIN flights f ON b.flight_id = f.flight_id 
+                      WHERE b.user_id = ? AND b.booking_status = 'confirmed' 
+                      AND f.departure_time > NOW() 
+                      AND f.departure_time < DATE_ADD(NOW(), INTERVAL 2 DAY)
+                      ORDER BY f.departure_time ASC");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$eligible_result = $stmt->get_result();
+
+while ($eligible = $eligible_result->fetch_assoc()) {
+    $eligible_bookings[] = $eligible;
 }
 ?>
 
@@ -141,222 +230,387 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="<?php echo $baseUrl; ?>assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <style>
+        .check-in-steps .step {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            position: relative;
+        }
+        
+        .check-in-steps .step:last-child {
+            border-bottom: none;
+        }
+        
+        .check-in-steps .step-number {
+            width: 30px;
+            height: 30px;
+            background-color: #3b71ca;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 15px;
+        }
+        
+        .boarding-pass {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .boarding-pass-header {
+            background-color: #3b71ca;
+            color: white;
+            padding: 15px;
+        }
+        
+        .boarding-pass-footer {
+            background-color: #3b71ca;
+            color: white;
+            padding: 10px;
+            font-size: 12px;
+        }
+    </style>
 </head>
-<body>
+<body class="bg-light">
     <!-- Navigation -->
     <?php include '../includes/navbar.php'; ?>
 
     <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <h4 class="mb-0"><i class="fas fa-check-circle me-2"></i>Web Check-In</h4>
-                    </div>
-                    <div class="card-body">
-                        <?php if (!empty($error)): ?>
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                <?php echo $error; ?>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <div class="row mb-4">
+            <div class="col-12">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="../user/dashboard.php">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Web Check-In</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+
+        <?php if (!empty($message)): ?>
+            <div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show mb-4" role="alert">
+                <?php echo $message; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <?php endif; ?>
+
+        <?php if (isset($booking) && $booking): ?>
+            <!-- Check-in for specific booking -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0">Check-In for Flight <?php echo htmlspecialchars($booking['flight_number']); ?></h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold">Flight Details</h6>
+                                    <table class="table table-borderless">
+                                        <tr>
+                                            <td width="140">Airline:</td>
+                                            <td><?php echo htmlspecialchars($booking['airline']); ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Flight Number:</td>
+                                            <td><?php echo htmlspecialchars($booking['flight_number']); ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Route:</td>
+                                            <td><?php echo htmlspecialchars($booking['departure_city'] . ' → ' . $booking['arrival_city']); ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Departure:</td>
+                                            <td><?php echo date('F j, Y - h:i A', strtotime($booking['departure_time'])); ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Booking Reference:</td>
+                                            <td>BK-<?php echo str_pad($booking['booking_id'], 6, '0', STR_PAD_LEFT); ?></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold">Passenger Information</h6>
+                                    <?php if (count($passengers) > 0): ?>
+                                        <table class="table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Seat</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($passengers as $passenger): ?>
+                                                    <tr>
+                                                        <td><?php echo htmlspecialchars($passenger['title'] . ' ' . $passenger['first_name'] . ' ' . $passenger['last_name']); ?></td>
+                                                        <td><?php echo isset($passenger['seat_number']) ? $passenger['seat_number'] : 'Not assigned yet'; ?></td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    <?php else: ?>
+                                        <p>Passenger details not available.</p>
+                                    <?php endif; ?>
+                                </div>
                             </div>
-                        <?php endif; ?>
-                        
-                        <?php if (!empty($success)): ?>
-                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                <?php echo $success; ?>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($booking && empty($error)): ?>
-                            <!-- Check-in details display -->
-                            <div class="check-in-details">
-                                <?php if (empty($success)): ?>
-                                    <div class="alert alert-info">
-                                        <h5 class="alert-heading">Booking Found!</h5>
-                                        <p>You can now proceed with check-in for your flight.</p>
-                                    </div>
-                                    
-                                    <div class="card mb-4">
-                                        <div class="card-header bg-light">
-                                            <h5 class="mb-0">Flight Information</h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <h5><?php echo htmlspecialchars($booking['airline']); ?> - <?php echo htmlspecialchars($booking['flight_number']); ?></h5>
-                                                    <div class="text-muted"><?php echo date('l, F j, Y', strtotime($booking['departure_time'])); ?></div>
-                                                </div>
-                                                <div>
-                                                    <span class="badge bg-<?php echo $booking['flight_status'] === 'scheduled' ? 'success' : 'warning'; ?>">
-                                                        <?php echo ucfirst(htmlspecialchars($booking['flight_status'])); ?>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <hr>
-                                            <div class="row">
-                                                <div class="col-md-4">
-                                                    <div class="text-center">
-                                                        <div class="text-muted">Departure</div>
-                                                        <div class="fs-4 fw-bold"><?php echo date('H:i', strtotime($booking['departure_time'])); ?></div>
-                                                        <div><?php echo htmlspecialchars($booking['departure_city']); ?></div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <div class="text-center">
-                                                        <div class="text-muted">Duration</div>
-                                                        <?php
-                                                        $departure = new DateTime($booking['departure_time']);
-                                                        $arrival = new DateTime($booking['arrival_time']);
-                                                        $interval = $departure->diff($arrival);
-                                                        $duration = $interval->format('%h h %i m');
-                                                        ?>
-                                                        <div><i class="fas fa-clock me-1"></i> <?php echo $duration; ?></div>
-                                                        <div class="flight-path">
-                                                            <div class="flight-dots"></div>
-                                                            <div class="flight-dots right"></div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <div class="text-center">
-                                                        <div class="text-muted">Arrival</div>
-                                                        <div class="fs-4 fw-bold"><?php echo date('H:i', strtotime($booking['arrival_time'])); ?></div>
-                                                        <div><?php echo htmlspecialchars($booking['arrival_city']); ?></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST">
-                                        <input type="hidden" name="booking_reference" value="<?php echo $booking['booking_id']; ?>">
-                                        <input type="hidden" name="last_name" value="<?php echo $booking['last_name']; ?>">
-                                        <input type="hidden" name="check_in" value="yes">
+                            
+                            <?php if (isset($booking['check_in_status']) && $booking['check_in_status'] === 'completed'): ?>
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    You have already checked in for this flight. Your boarding pass is ready.
+                                </div>
+                                
+                                <div class="text-center mt-4">
+                                    <a href="../user/booking_details.php?id=<?php echo $booking_id; ?>" class="btn btn-primary">
+                                        View Boarding Pass
+                                    </a>
+                                </div>
+                            <?php else: ?>
+                                <div class="check-in-steps">
+                                    <form action="check-in.php" method="post">
+                                        <input type="hidden" name="booking_id" value="<?php echo $booking['booking_id']; ?>">
                                         
-                                        <div class="alert alert-warning">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" id="terms" required>
-                                                <label class="form-check-label" for="terms">
-                                                    I confirm that I have read and agree to the <a href="../pages/terms.php" target="_blank">terms and conditions</a> for travel and that all passengers have valid identification.
-                                                </label>
+                                        <!-- Step 1: Confirm Flight Details -->
+                                        <div class="step d-flex">
+                                            <div class="step-number">1</div>
+                                            <div class="flex-grow-1">
+                                                <h6>Confirm Flight Details</h6>
+                                                <p>Please verify that the flight information shown above is correct.</p>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-check text-success"></i>
                                             </div>
                                         </div>
                                         
-                                        <div class="d-grid">
-                                            <button type="submit" class="btn btn-primary">Complete Check-In</button>
+                                        <!-- Step 2: Terms and Conditions -->
+                                        <div class="step d-flex">
+                                            <div class="step-number">2</div>
+                                            <div class="flex-grow-1">
+                                                <h6>Terms and Conditions</h6>
+                                                <div class="form-check mb-3">
+                                                    <input class="form-check-input" type="checkbox" id="terms" name="terms" required>
+                                                    <label class="form-check-label" for="terms">
+                                                        I confirm that I have read and agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">Terms and Conditions</a> of travel.
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="baggage" name="baggage" required>
+                                                    <label class="form-check-label" for="baggage">
+                                                        I confirm that my baggage complies with <a href="#" data-bs-toggle="modal" data-bs-target="#baggageModal">baggage policy</a>.
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Step 3: Review and Complete -->
+                                        <div class="step d-flex">
+                                            <div class="step-number">3</div>
+                                            <div class="flex-grow-1">
+                                                <h6>Complete Check-In</h6>
+                                                <p>Click the button below to complete your check-in.</p>
+                                                <div class="mt-3">
+                                                    <button type="submit" class="btn btn-primary">
+                                                        <i class="fas fa-check-circle me-2"></i>Complete Check-In
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </form>
-                                <?php else: ?>
-                                    <!-- Boarding pass display after successful check-in -->
-                                    <div class="boarding-passes">
-                                        <h5 class="mb-4">Your Boarding Passes</h5>
-                                        <?php foreach ($booking['tickets'] as $index => $ticket): ?>
-                                            <div class="card boarding-pass mb-4">
-                                                <div class="card-header d-flex justify-content-between align-items-center">
-                                                    <h5 class="mb-0">Boarding Pass</h5>
-                                                    <span class="badge bg-success">Checked-In</span>
-                                                </div>
-                                                <div class="card-body">
-                                                    <div class="row">
-                                                        <div class="col-md-8">
-                                                            <div class="row mb-3">
-                                                                <div class="col-md-6">
-                                                                    <div class="text-muted small">Passenger</div>
-                                                                    <div class="fw-bold"><?php echo htmlspecialchars($ticket['passenger_name']); ?></div>
-                                                                </div>
-                                                                <div class="col-md-6">
-                                                                    <div class="text-muted small">Flight</div>
-                                                                    <div class="fw-bold"><?php echo htmlspecialchars($booking['flight_number']); ?></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row mb-3">
-                                                                <div class="col-md-6">
-                                                                    <div class="text-muted small">From</div>
-                                                                    <div class="fw-bold"><?php echo htmlspecialchars($booking['departure_city']); ?></div>
-                                                                </div>
-                                                                <div class="col-md-6">
-                                                                    <div class="text-muted small">To</div>
-                                                                    <div class="fw-bold"><?php echo htmlspecialchars($booking['arrival_city']); ?></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row mb-3">
-                                                                <div class="col-md-6">
-                                                                    <div class="text-muted small">Date</div>
-                                                                    <div class="fw-bold"><?php echo date('d M Y', strtotime($booking['departure_time'])); ?></div>
-                                                                </div>
-                                                                <div class="col-md-6">
-                                                                    <div class="text-muted small">Time</div>
-                                                                    <div class="fw-bold"><?php echo date('H:i', strtotime($booking['departure_time'])); ?></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row">
-                                                                <div class="col-md-6">
-                                                                    <div class="text-muted small">Seat</div>
-                                                                    <div class="fw-bold"><?php echo htmlspecialchars($ticket['seat_number']); ?></div>
-                                                                </div>
-                                                                <div class="col-md-6">
-                                                                    <div class="text-muted small">Gate</div>
-                                                                    <div class="fw-bold">TBA</div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-4 text-center">
-                                                            <div class="qr-code-container mb-2">
-                                                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=<?php echo $ticket['ticket_number']; ?>" alt="Boarding Pass QR Code" class="img-fluid">
-                                                            </div>
-                                                            <div class="small text-muted">Boarding Pass #<?php echo $ticket['ticket_number']; ?></div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="card-footer">
-                                                    <div class="d-flex justify-content-between align-items-center">
-                                                        <div class="small text-muted">Please arrive at the gate at least 30 minutes before departure</div>
-                                                        <div>
-                                                            <button class="btn btn-sm btn-outline-primary" onclick="window.print()">
-                                                                <i class="fas fa-print me-1"></i> Print
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        <?php else: ?>
-                            <!-- Check-in lookup form -->
-                            <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST" class="needs-validation" novalidate>
-                                <p class="text-muted mb-4">Please enter your booking reference and last name to check in for your flight.</p>
-                                
-                                <div class="mb-3">
-                                    <label for="booking_reference" class="form-label">Booking Reference</label>
-                                    <input type="text" class="form-control" id="booking_reference" name="booking_reference" required>
-                                    <div class="form-text">Enter the booking number from your confirmation email</div>
-                                    <div class="invalid-feedback">Please enter your booking reference</div>
                                 </div>
-                                
-                                <div class="mb-4">
-                                    <label for="last_name" class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" id="last_name" name="last_name" required>
-                                    <div class="form-text">Enter the last name used during booking</div>
-                                    <div class="invalid-feedback">Please enter your last name</div>
-                                </div>
-                                
-                                <div class="d-grid">
-                                    <button type="submit" class="btn btn-primary">Proceed to Check-In</button>
-                                </div>
-                            </form>
-                        <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="card mt-4">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="fas fa-info-circle text-primary me-2"></i>Web Check-In Information</h5>
-                        <p class="card-text">Web check-in opens 24 hours before departure and closes 2 hours before departure. After checking in, please arrive at the airport at least 2 hours before your flight for domestic flights or 3 hours for international flights.</p>
+            </div>
+        <?php else: ?>
+            <!-- Check-in landing page -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body p-md-5">
+                            <div class="text-center mb-4">
+                                <i class="fas fa-plane-departure fa-4x text-primary mb-3"></i>
+                                <h2 class="card-title">Online Check-In</h2>
+                                <p class="card-text">Check in online to save time at the airport. Online check-in opens 48 hours before departure.</p>
+                            </div>
+                            
+                            <!-- Check-in Form -->
+                            <div class="row justify-content-center">
+                                <div class="col-md-8">
+                                    <form action="check-in.php" method="get" class="mb-4">
+                                        <div class="row g-3">
+                                            <div class="col-md-12">
+                                                <label for="booking_ref" class="form-label">Booking Reference</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text">BK-</span>
+                                                    <input type="text" class="form-control" id="booking_ref" name="booking_id" placeholder="123456" required pattern="[0-9]+">
+                                                </div>
+                                                <div class="form-text">Enter the booking reference number without the "BK-" prefix</div>
+                                            </div>
+                                            <div class="col-12">
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="fas fa-search me-2"></i>Find Booking
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            <!-- Eligible Bookings -->
+                            <?php if (count($eligible_bookings) > 0): ?>
+                                <div class="card mb-0 border-0 bg-light">
+                                    <div class="card-body">
+                                        <h5 class="mb-3">Your Eligible Flights</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-hover align-middle">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Flight</th>
+                                                        <th>Route</th>
+                                                        <th>Date</th>
+                                                        <th>Status</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php foreach ($eligible_bookings as $eligible): ?>
+                                                        <tr>
+                                                            <td>
+                                                                <div class="fw-bold"><?php echo htmlspecialchars($eligible['flight_number']); ?></div>
+                                                                <div class="small text-muted"><?php echo htmlspecialchars($eligible['airline']); ?></div>
+                                                            </td>
+                                                            <td><?php echo htmlspecialchars($eligible['departure_city'] . ' → ' . $eligible['arrival_city']); ?></td>
+                                                            <td>
+                                                                <div><?php echo date('M d, Y', strtotime($eligible['departure_time'])); ?></div>
+                                                                <div class="small text-muted"><?php echo date('h:i A', strtotime($eligible['departure_time'])); ?></div>
+                                                            </td>
+                                                            <td>
+                                                                <?php if (isset($eligible['check_in_status']) && $eligible['check_in_status'] === 'completed'): ?>
+                                                                    <span class="badge bg-success">Checked In</span>
+                                                                <?php else: ?>
+                                                                    <span class="badge bg-warning text-dark">Not Checked In</span>
+                                                                <?php endif; ?>
+                                                            </td>
+                                                            <td>
+                                                                <?php if (isset($eligible['check_in_status']) && $eligible['check_in_status'] === 'completed'): ?>
+                                                                    <a href="../user/booking_details.php?id=<?php echo $eligible['booking_id']; ?>" class="btn btn-sm btn-primary">
+                                                                        <i class="fas fa-ticket-alt me-1"></i> Boarding Pass
+                                                                    </a>
+                                                                <?php else: ?>
+                                                                    <a href="check-in.php?booking_id=<?php echo $eligible['booking_id']; ?>" class="btn btn-sm btn-outline-primary">
+                                                                        <i class="fas fa-check-circle me-1"></i> Check-In
+                                                                    </a>
+                                                                <?php endif; ?>
+                                                            </td>
+                                                        </tr>
+                                                    <?php endforeach; ?>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                        </div>
                     </div>
+                </div>
+            </div>
+            
+            <!-- Check-in Information -->
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-body">
+                            <div class="text-center mb-3">
+                                <i class="fas fa-clock fa-2x text-primary"></i>
+                            </div>
+                            <h5 class="text-center mb-3">Check-in Time</h5>
+                            <p class="card-text">Online check-in opens 48 hours before departure and closes 1 hour before the flight.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-body">
+                            <div class="text-center mb-3">
+                                <i class="fas fa-suitcase fa-2x text-primary"></i>
+                            </div>
+                            <h5 class="text-center mb-3">Baggage</h5>
+                            <p class="card-text">Remember to check the baggage allowance for your flight before you travel.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-body">
+                            <div class="text-center mb-3">
+                                <i class="fas fa-id-card fa-2x text-primary"></i>
+                            </div>
+                            <h5 class="text-center mb-3">Travel Documents</h5>
+                            <p class="card-text">Don't forget to bring your ID or passport and printed boarding pass to the airport.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Terms Modal -->
+    <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="termsModalLabel">Terms and Conditions</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6>Check-in Terms</h6>
+                    <p>By checking in online, you confirm that you will arrive at the airport in sufficient time for all pre-boarding procedures.</p>
+                    <p>You must present a valid government-issued photo ID at security checkpoints and at the boarding gate.</p>
+                    <p>Failure to arrive at the boarding gate on time may result in the loss of your seat without refund.</p>
+                    
+                    <h6>Baggage</h6>
+                    <p>Your ticket includes one carry-on bag and one personal item. Additional bags may be subject to fees.</p>
+                    <p>Oversize or overweight baggage may be rejected or subject to additional fees.</p>
+                    
+                    <h6>Health and Safety</h6>
+                    <p>You confirm that you are fit to fly and do not have any conditions that would make you unsuitable for air travel.</p>
+                    <p>You agree to comply with all health and safety measures required by the airline and destination country.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">I Understand</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Baggage Policy Modal -->
+    <div class="modal fade" id="baggageModal" tabindex="-1" aria-labelledby="baggageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="baggageModalLabel">Baggage Policy</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6>Carry-On Baggage</h6>
+                    <p>Each passenger is allowed one carry-on bag not exceeding 22 x 14 x 9 inches (56 x 36 x 23 cm) and one personal item.</p>
+                    <p>Maximum weight for carry-on baggage is 22 lbs (10 kg).</p>
+                    
+                    <h6>Checked Baggage</h6>
+                    <p>Standard economy tickets include one checked bag up to 50 lbs (23 kg).</p>
+                    <p>Maximum dimensions for checked baggage: 62 linear inches (158 cm) total of length + width + height.</p>
+                    <p>Additional or overweight bags will incur extra charges.</p>
+                    
+                    <h6>Prohibited Items</h6>
+                    <p>Dangerous goods such as explosives, compressed gases, flammable liquids or solids, etc. are prohibited.</p>
+                    <p>For a complete list of restricted items, please visit the airport security website.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">I Understand</button>
                 </div>
             </div>
         </div>
@@ -367,28 +621,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <script>
-        // Form validation
-        (function () {
-            'use strict'
-            
-            // Fetch all forms to apply validation styles to
-            var forms = document.querySelectorAll('.needs-validation')
-            
-            // Loop over them and prevent submission
-            Array.prototype.slice.call(forms)
-                .forEach(function (form) {
-                    form.addEventListener('submit', function (event) {
-                        if (!form.checkValidity()) {
-                            event.preventDefault()
-                            event.stopPropagation()
-                        }
-                        
-                        form.classList.add('was-validated')
-                    }, false)
-                })
-        })()
-    </script>
 </body>
 </html>

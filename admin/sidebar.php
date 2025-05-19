@@ -70,7 +70,7 @@ $baseUrl = getBaseUrl();
             </li>
             
             <li class="nav-item">
-                <a class="nav-link <?php echo $current_page == 'admin_logs.php' ? 'active' : ''; ?>" href="<?php echo $baseUrl; ?>admin/admin_logs.php">
+                <a class="nav-link <?php echo $current_page == 'admin_logs.php' || $current_page == 'initialize_logs.php' ? 'active' : ''; ?>" href="<?php echo $baseUrl; ?>admin/admin_logs.php">
                     <i class="fas fa-history me-2"></i>
                     Activity Logs
                 </a>

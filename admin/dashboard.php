@@ -264,6 +264,71 @@ if ($recent_bookings_result) {
                         </div>
                     </div>
                 </div>
+                
+                <!-- Recent Activity Logs -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <h6 class="m-0 font-weight-bold">Recent Admin Activity</h6>
+                                <a href="admin_logs.php" class="btn btn-sm btn-primary">View All Logs</a>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Admin</th>
+                                                <th>Action</th>
+                                                <th>Details</th>
+                                                <th>Date/Time</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php 
+                                            // Check if admin_logs table exists
+                                            $table_check = $conn->query("SHOW TABLES LIKE 'admin_logs'");
+                                            $logs_exist = $table_check->num_rows > 0;
+                                            
+                                            if ($logs_exist) {
+                                                // Get recent activity logs
+                                                $logs_query = "SELECT al.*, u.username, u.first_name, u.last_name 
+                                                              FROM admin_logs al
+                                                              JOIN users u ON al.admin_id = u.user_id
+                                                              ORDER BY al.created_at DESC
+                                                              LIMIT 5";
+                                                $logs_result = $conn->query($logs_query);
+                                                $recent_logs = [];
+                                                
+                                                if ($logs_result && $logs_result->num_rows > 0) {
+                                                    while ($log = $logs_result->fetch_assoc()) {
+                                                        $recent_logs[] = $log;
+                                                    }
+                                                }
+                                                
+                                                if (!empty($recent_logs)) {
+                                                    foreach ($recent_logs as $log) {
+                                                        echo '<tr>';
+                                                        echo '<td>' . htmlspecialchars($log['username']) . '</td>';
+                                                        echo '<td><span class="badge bg-secondary">' . ucwords(str_replace('_', ' ', $log['action'])) . '</span></td>';
+                                                        echo '<td class="text-wrap">' . htmlspecialchars($log['details']) . '</td>';
+                                                        echo '<td>' . date('M d, Y g:i A', strtotime($log['created_at'])) . '</td>';
+                                                        echo '</tr>';
+                                                    }
+                                                } else {
+                                                    echo '<tr><td colspan="4" class="text-center py-3">No recent activity logs found.</td></tr>';
+                                                }
+                                            } else {
+                                                echo '<tr><td colspan="4" class="text-center py-3">Activity logs system not initialized yet.</td></tr>';
+                                            }
+                                            ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </main>
         </div>
     </div>

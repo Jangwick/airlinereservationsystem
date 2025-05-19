@@ -57,6 +57,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             // Redirect based on role
             if ($user['role'] === 'admin') {
+                // Check if admin_logs table exists and create if needed
+                $table_check = $conn->query("SHOW TABLES LIKE 'admin_logs'");
+                if ($table_check->num_rows == 0) {
+                    $create_table_sql = "CREATE TABLE admin_logs (
+                        log_id INT AUTO_INCREMENT PRIMARY KEY,
+                        admin_id INT NOT NULL,
+                        action VARCHAR(50) NOT NULL,
+                        entity_id INT,
+                        details TEXT,
+                        ip_address VARCHAR(45),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX (admin_id),
+                        INDEX (action),
+                        INDEX (created_at)
+                    )";
+                    $conn->query($create_table_sql);
+                }
+                
+                // Log the login action
+                $admin_id = $user['user_id'];
+                $ip = $_SERVER['REMOTE_ADDR'];
+                $browser = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+                
+                $stmt = $conn->prepare("INSERT INTO admin_logs (admin_id, action, details, ip_address) VALUES (?, 'login', ?, ?)");
+                $details = "Admin login from IP: $ip using " . substr($browser, 0, 150);
+                $stmt->bind_param("iss", $admin_id, $details, $ip);
+                $stmt->execute();
+                
                 header("Location: ../admin/dashboard.php");
             } else {
                 // Redirect regular users to user dashboard instead of homepage
