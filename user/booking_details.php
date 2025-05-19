@@ -21,7 +21,7 @@ if ($booking_id <= 0) {
 
 // Get booking details
 $stmt = $conn->prepare("SELECT b.*, f.flight_number, f.airline, f.departure_city, f.arrival_city, 
-                      f.departure_time, f.arrival_time, f.price, f.aircraft, f.duration 
+                      f.departure_time, f.arrival_time, f.price 
                       FROM bookings b 
                       JOIN flights f ON b.flight_id = f.flight_id 
                       WHERE b.booking_id = ? AND b.user_id = ?");
@@ -416,7 +416,7 @@ $can_cancel = $booking['booking_status'] != 'cancelled' && $booking['booking_sta
                         <div class="row row-cols-2 row-cols-md-4 g-3 border-top pt-3">
                             <div class="col">
                                 <div class="text-muted small">Aircraft</div>
-                                <div><?php echo htmlspecialchars($booking['aircraft'] ?: 'Standard Aircraft'); ?></div>
+                                <div><?php echo isset($booking['aircraft']) ? htmlspecialchars($booking['aircraft']) : 'Standard Aircraft'; ?></div>
                             </div>
                             <div class="col">
                                 <div class="text-muted small">Flight Duration</div>

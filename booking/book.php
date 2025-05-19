@@ -24,8 +24,7 @@ if ($flight_id <= 0) {
 }
 
 // Get flight information
-$stmt = $conn->prepare("SELECT f.*, a.name as airline_name FROM flights f 
-                       LEFT JOIN airlines a ON f.airline = a.code
+$stmt = $conn->prepare("SELECT f.* FROM flights f 
                        WHERE f.flight_id = ? AND f.departure_time > NOW()");
 $stmt->bind_param("i", $flight_id);
 $stmt->execute();
@@ -70,12 +69,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && !$error) {
     $conn->begin_transaction();
     
     try {
-        // Insert booking record
-        $booking_query = "INSERT INTO bookings (user_id, flight_id, booking_date, passenger_count, 
+        // Check if passenger_count column exists in bookings table
+        $column_check = $conn->query("SHOW COLUMNS FROM bookings LIKE 'passenger_count'");
+        $has_passenger_count = $column_check->num_rows > 0;
+        
+        // Insert booking record with different queries depending on column existence
+        if ($has_passenger_count) {
+            $booking_query = "INSERT INTO bookings (user_id, flight_id, booking_date, passenger_count, 
                          total_amount, booking_status, payment_status) 
                          VALUES (?, ?, NOW(), ?, ?, 'pending', 'pending')";
-        $booking_stmt = $conn->prepare($booking_query);
-        $booking_stmt->bind_param("iiid", $_SESSION['user_id'], $flight_id, $passengers, $total_price);
+            $booking_stmt = $conn->prepare($booking_query);
+            $booking_stmt->bind_param("iiid", $_SESSION['user_id'], $flight_id, $passengers, $total_price);
+        } else {
+            $booking_query = "INSERT INTO bookings (user_id, flight_id, booking_date, 
+                         total_amount, booking_status, payment_status) 
+                         VALUES (?, ?, NOW(), ?, 'pending', 'pending')";
+            $booking_stmt = $conn->prepare($booking_query);
+            $booking_stmt->bind_param("iid", $_SESSION['user_id'], $flight_id, $total_price);
+        }
+        
         $booking_stmt->execute();
         $booking_id = $conn->insert_id;
         
@@ -122,9 +134,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && !$error) {
         $update_stmt->bind_param("ii", $passengers, $flight_id);
         $update_stmt->execute();
         
-        // Create notification for admin (if notifications table exists)
+        // Try to create notification for admin (if notifications table exists)
         $check_notifications = $conn->query("SHOW TABLES LIKE 'notifications'");
         if ($check_notifications->num_rows > 0) {
+            // Notifications table exists, proceed with creating notifications
             $notification_query = "INSERT INTO notifications (user_id, title, message, type) 
                                   VALUES (?, 'New Booking', 'A new booking has been created (ID: BK-" . str_pad($booking_id, 6, '0', STR_PAD_LEFT) . ")', 'booking')";
             $admin_query = "SELECT user_id FROM users WHERE role = 'admin' LIMIT 1";
@@ -135,14 +148,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && !$error) {
                 $notification_stmt->bind_param("i", $admin_id);
                 $notification_stmt->execute();
             }
+
+            // Create notification for user
+            $user_notification_query = "INSERT INTO notifications (user_id, title, message, type) 
+                                       VALUES (?, 'Booking Confirmation', 'Your booking has been created and is awaiting payment. Booking ID: BK-" . str_pad($booking_id, 6, '0', STR_PAD_LEFT) . "', 'booking')";
+            $user_notification_stmt = $conn->prepare($user_notification_query);
+            $user_notification_stmt->bind_param("i", $_SESSION['user_id']);
+            $user_notification_stmt->execute();
         }
-        
-        // Create notification for user
-        $user_notification_query = "INSERT INTO notifications (user_id, title, message, type) 
-                                   VALUES (?, 'Booking Confirmation', 'Your booking has been created and is awaiting payment. Booking ID: BK-" . str_pad($booking_id, 6, '0', STR_PAD_LEFT) . "', 'booking')";
-        $user_notification_stmt = $conn->prepare($user_notification_query);
-        $user_notification_stmt->bind_param("i", $_SESSION['user_id']);
-        $user_notification_stmt->execute();
         
         // Log the booking activity for admin
         if (file_exists('../includes/admin_functions.php')) {
@@ -483,60 +496,61 @@ $user = $user_stmt->get_result()->fetch_assoc();
                     if (this.checked) {
                         firstName.value = '<?php echo addslashes($user['first_name']); ?>';
                         lastName.value = '<?php echo addslashes($user['last_name']); ?>';
+                        lastName.value = '<?php echo addslashes($user['last_name']); ?>';
                         phone.value = '<?php echo addslashes($user['phone'] ?? ''); ?>';
-                    } else {
+                    } else {tName.value = '';
                         firstName.value = '';
                         lastName.value = '';
                         phone.value = '';
                     }
                 });
             }
-            
             // Calculate additional services price
+            // Calculate additional services priceprice'] * $passengers; ?>;
             const basePrice = <?php echo $flight['price'] * $passengers; ?>;
-            const insurance = document.getElementById('add_insurance');
+            const insurance = document.getElementById('add_insurance');boarding');
             const priorityBoarding = document.getElementById('priority_boarding');
             const extraBaggage = document.getElementById('extra_baggage');
             const specialMeal = document.getElementById('special_meal');
-            const passengers = <?php echo $passengers; ?>;
+            const passengers = <?php echo $passengers; ?>;d('additional-price');
             const additionalPrice = document.getElementById('additional-price');
-            const totalPrice = document.getElementById('total-price');
+            const totalPrice = document.getElementById('total-price');onal-services');
             const additionalServices = document.querySelector('.additional-services');
-            
+            function updatePrice() {
             function updatePrice() {
                 let additional = 0;
-                
+                if (insurance && insurance.checked) {
                 if (insurance && insurance.checked) {
                     additional += 15 * passengers;
                 }
-                
+                if (priorityBoarding && priorityBoarding.checked) {
                 if (priorityBoarding && priorityBoarding.checked) {
                     additional += 10 * passengers;
                 }
-                
+                if (extraBaggage && extraBaggage.checked) {
                 if (extraBaggage && extraBaggage.checked) {
                     additional += 25 * passengers;
                 }
-                
+                if (specialMeal && specialMeal.checked) {
                 if (specialMeal && specialMeal.checked) {
                     additional += 8 * passengers;
                 }
-                
                 if (additional > 0) {
-                    additionalServices.style.display = 'flex';
+                if (additional > 0) {s.style.display = 'flex';
+                    additionalServices.style.display = 'flex';oFixed(2);
                     additionalPrice.textContent = additional.toFixed(2);
-                } else {
+                } else {tionalServices.style.display = 'none';
                     additionalServices.style.display = 'none';
                 }
-                
+                totalPrice.textContent = (basePrice + additional).toFixed(2);
                 totalPrice.textContent = (basePrice + additional).toFixed(2);
             }
-            
             insurance?.addEventListener('change', updatePrice);
+            insurance?.addEventListener('change', updatePrice);Price);
             priorityBoarding?.addEventListener('change', updatePrice);
             extraBaggage?.addEventListener('change', updatePrice);
             specialMeal?.addEventListener('change', updatePrice);
-        });
+        });t>
     </script>
 </body>
 </html>

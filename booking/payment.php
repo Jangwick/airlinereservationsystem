@@ -68,14 +68,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // In a real application, you would integrate with a payment gateway here
         // For this example, we'll simulate a successful payment
         
+        // Check if payment_method and payment_date columns exist in the bookings table
+        $payment_method_column_exists = false;
+        $payment_date_column_exists = false;
+        
+        $columns_result = $conn->query("SHOW COLUMNS FROM bookings LIKE 'payment_method'");
+        if ($columns_result && $columns_result->num_rows > 0) {
+            $payment_method_column_exists = true;
+        }
+        
+        $columns_result = $conn->query("SHOW COLUMNS FROM bookings LIKE 'payment_date'");
+        if ($columns_result && $columns_result->num_rows > 0) {
+            $payment_date_column_exists = true;
+        }
+        
         // Start transaction
         $conn->begin_transaction();
         
         try {
-            // Update booking status
-            $update_query = "UPDATE bookings SET payment_status = 'completed', payment_method = ?, booking_status = 'confirmed', payment_date = NOW() WHERE booking_id = ?";
+            // Build the update query based on which columns exist
+            $update_fields = ["payment_status = 'completed'", "booking_status = 'confirmed'"];
+            $params = [];
+            $types = "";
+            
+            if ($payment_method_column_exists) {
+                $update_fields[] = "payment_method = ?";
+                $params[] = $payment_method;
+                $types .= "s";
+            }
+            
+            if ($payment_date_column_exists) {
+                $update_fields[] = "payment_date = NOW()";
+            }
+            
+            $update_query = "UPDATE bookings SET " . implode(", ", $update_fields) . " WHERE booking_id = ?";
+            $params[] = $booking_id;
+            $types .= "i";
+            
             $update_stmt = $conn->prepare($update_query);
-            $update_stmt->bind_param("si", $payment_method, $booking_id);
+            if (!empty($params)) {
+                $update_stmt->bind_param($types, ...$params);
+            }
             $update_stmt->execute();
             
             // Create booking_history record if table exists
