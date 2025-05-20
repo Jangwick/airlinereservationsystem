@@ -322,75 +322,38 @@ function getCityImage($city, $cityImages, $baseUrl) {
             <!-- Search Form -->
             <div class="card shadow-lg">
                 <div class="card-body p-4">
-                    <form action="search.php" method="get">
-                        <!-- Trip Type -->
-                        <div class="row mb-4">
-                            <div class="col-md-12">
-                                <div class="btn-group w-100" role="group">
-                                    <input type="radio" class="btn-check" name="trip_type" id="one_way" value="one-way" autocomplete="off" checked>
-                                    <label class="btn btn-outline-primary" for="one_way">One Way</label>
-                                    
-                                    <input type="radio" class="btn-check" name="trip_type" id="round_trip" value="round-trip" autocomplete="off">
-                                    <label class="btn btn-outline-primary" for="round_trip">Round Trip</label>
-                                </div>
-                            </div>
-                        </div>
-                        
+                    <form action="search_results.php" method="get" class="needs-validation" novalidate>
                         <div class="row g-3">
-                            <!-- Departure City -->
                             <div class="col-md-6">
                                 <label for="departure_city" class="form-label">From</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-plane-departure"></i></span>
-                                    <input type="text" class="form-control city-autocomplete" id="departure_city" name="departure_city" 
-                                           placeholder="City or Airport" 
-                                           value="<?php echo isset($_GET['departure_city']) ? htmlspecialchars($_GET['departure_city']) : ''; ?>" required>
-                                </div>
-                            </div>
-                            
-                            <!-- Arrival City -->
-                            <div class="col-md-6">
-                                <label for="arrival_city" class="form-label">To</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-plane-arrival"></i></span>
-                                    <input type="text" class="form-control city-autocomplete" id="arrival_city" name="arrival_city" 
-                                           placeholder="City or Airport" 
-                                           value="<?php echo isset($_GET['arrival_city']) ? htmlspecialchars($_GET['arrival_city']) : ''; ?>" required>
-                                </div>
-                            </div>
-                            
-                            <!-- Departure Date -->
-                            <div class="col-md-3">
-                                <label for="departure_date" class="form-label">Departure Date</label>
-                                <input type="date" class="form-control" id="departure_date" name="departure_date" 
-                                       min="<?php echo date('Y-m-d'); ?>" 
-                                       value="<?php echo isset($_GET['departure_date']) ? htmlspecialchars($_GET['departure_date']) : date('Y-m-d'); ?>" required>
-                            </div>
-                            
-                            <!-- Return Date - Only visible for round trip -->
-                            <div class="col-md-3" id="return_date_container">
-                                <label for="return_date" class="form-label">Return Date</label>
-                                <input type="date" class="form-control" id="return_date" name="return_date" 
-                                       min="<?php echo date('Y-m-d'); ?>"
-                                       value="<?php echo isset($_GET['return_date']) ? htmlspecialchars($_GET['return_date']) : ''; ?>">
-                            </div>
-                            
-                            <!-- Passengers -->
-                            <div class="col-md-3">
-                                <label for="passengers" class="form-label">Passengers</label>
-                                <select class="form-select" id="passengers" name="passengers">
-                                    <?php for ($i = 1; $i <= 10; $i++): ?>
-                                        <option value="<?php echo $i; ?>" <?php echo (isset($_GET['passengers']) && $_GET['passengers'] == $i) ? 'selected' : ''; ?>>
-                                            <?php echo $i; ?> <?php echo $i === 1 ? 'Passenger' : 'Passengers'; ?>
-                                        </option>
-                                    <?php endfor; ?>
+                                <select class="form-select" id="departure_city" name="departure_city" required>
+                                    <option value="">Select departure city</option>
+                                    <?php foreach ($city_list as $city): ?>
+                                        <option value="<?php echo htmlspecialchars($city); ?>"><?php echo htmlspecialchars($city); ?></option>
+                                    <?php endforeach; ?>
                                 </select>
                             </div>
-                            
-                            <!-- Search Button -->
-                            <div class="col-md-3 d-flex align-items-end">
-                                <button type="submit" class="btn btn-primary w-100 py-2">
-                                    <i class="fas fa-search me-2"></i> Search Flights
+                            <div class="col-md-6">
+                                <label for="arrival_city" class="form-label">To</label>
+                                <select class="form-select" id="arrival_city" name="arrival_city" required>
+                                    <option value="">Select arrival city</option>
+                                    <?php foreach ($city_list as $city): ?>
+                                        <option value="<?php echo htmlspecialchars($city); ?>"><?php echo htmlspecialchars($city); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="departure_date" class="form-label">Departure Date</label>
+                                <input type="date" class="form-control" id="departure_date" name="departure_date" required 
+                                       min="<?php echo date('Y-m-d'); ?>" value="<?php echo date('Y-m-d'); ?>">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="passengers" class="form-label">Passengers</label>
+                                <input type="number" class="form-control" id="passengers" name="passengers" min="1" max="9" value="1" required>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-2"></i>Search Flights
                                 </button>
                             </div>
                         </div>

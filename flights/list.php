@@ -10,11 +10,16 @@ $filter_arrival = isset($_GET['arrival']) ? $_GET['arrival'] : '';
 $filter_date = isset($_GET['date']) ? $_GET['date'] : '';
 $filter_airline = isset($_GET['airline']) ? $_GET['airline'] : '';
 
-// Base query - Get all available future flights
-$query = "SELECT * FROM flights 
-          WHERE status = 'scheduled' 
-          AND departure_time > NOW() 
-          AND (seats_available > 0 OR seats_available IS NULL)";
+// Base query
+$query = "SELECT f.*, f.price as flight_price FROM flights f WHERE f.departure_time > NOW()";
+
+// If status column exists, add condition
+if ($status_column_exists) {
+    $query .= " AND (f.status = 'scheduled' OR f.status = 'delayed')";
+}
+
+// Add sorting
+$query .= " ORDER BY f.departure_time ASC";
 
 $params = [];
 $types = "";
@@ -45,9 +50,6 @@ if (!empty($filter_airline)) {
     $params[] = "%$filter_airline%";
     $types .= "s";
 }
-
-// Order by departure time
-$query .= " ORDER BY departure_time ASC";
 
 // Prepare and execute query
 $stmt = $conn->prepare($query);

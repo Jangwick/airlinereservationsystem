@@ -85,10 +85,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $payment_date_column_exists = true;
         }
         
-        // Start transaction
-        $conn->begin_transaction();
-        
         try {
+            // Start a transaction
+            $conn->begin_transaction();
+            
+            // Insert booking record with the current user ID
+            $booking_date = date('Y-m-d H:i:s');
+            $booking_status = 'confirmed';  // Make sure to set to 'confirmed' after payment
+            $payment_status = 'completed';  // Mark payment as completed
+            
+            $stmt = $conn->prepare("INSERT INTO bookings (user_id, flight_id, booking_date, passengers, total_amount, booking_status, payment_status, payment_method) 
+                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("iisidsss", $user_id, $flight_id, $booking_date, $passengers, $total_price, $booking_status, $payment_status, $payment_method);
+            $stmt->execute();
+            
+            $booking_id = $conn->insert_id;
+            
+            // Add debug logging
+            error_log("Booking created successfully. Booking ID: {$booking_id}, User ID: {$user_id}, Flight ID: {$flight_id}");
+            
             // Build the update query based on which columns exist
             $update_fields = ["payment_status = 'completed'", "booking_status = 'confirmed'"];
             $params = [];
@@ -160,12 +175,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Set success flag
             $payment_success = true;
             
+            // Set success message to be displayed on confirmation page
+            $_SESSION['booking_success'] = true;
+            $_SESSION['recent_booking_id'] = $booking_id;
+            
+            // Clear booking data from session
+            unset($_SESSION['booking_data']);
+            
             // Redirect to confirmation page
             header("Location: confirmation.php?booking_id=" . $booking_id);
             exit();
         } catch (Exception $e) {
             // Rollback transaction on error
             $conn->rollback();
+            
+            // Log the error
+            error_log("Error processing booking: " . $e->getMessage());
+            
             $payment_error = "Error processing payment: " . $e->getMessage();
         }
     }
