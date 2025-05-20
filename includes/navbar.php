@@ -64,8 +64,8 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
                 <?php if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin'): ?>
                 <!-- Don't show these navigation items to admin users -->
                 <li class="nav-item">
-                    <a class="nav-link <?php echo ($current_dir == 'flights' || strpos($current_page, 'flight') !== false) ? 'active' : ''; ?>" href="<?php echo $baseUrl; ?>flights/search.php">
-                        <i class="fas fa-plane me-1"></i> Flights
+                    <a class="nav-link <?php echo ($current_dir == 'flights' || strpos($current_page, 'flight') !== false) ? 'active' : ''; ?>" href="<?php echo $baseUrl; ?>flights/list.php">
+                        <i class="fas fa-plane me-1"></i> Available Flights
                     </a>
                 </li>
                 

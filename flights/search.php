@@ -93,10 +93,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && (isset($_GET['departure_city']) || i
     // Only proceed if no validation errors
     if (empty($validation_errors)) {
         try {
-            // Build the search query with proper case-insensitive search
-            $query = "SELECT f.*, a.logo_url 
+            // Build the search query WITHOUT joining the airlines table
+            $query = "SELECT f.* 
                       FROM flights f 
-                      LEFT JOIN airlines a ON f.airline = a.name 
                       WHERE (LOWER(f.departure_city) = LOWER(?) OR SOUNDEX(f.departure_city) = SOUNDEX(?))
                       AND (LOWER(f.arrival_city) = LOWER(?) OR SOUNDEX(f.arrival_city) = SOUNDEX(?))
                       AND f.seats_available >= ?";
@@ -133,13 +132,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && (isset($_GET['departure_city']) || i
                 $error_message = "No flights found matching your search criteria. Try different dates or destinations.";
             }
             
-            // If round-trip, also search for return flights
+            // If round-trip, also search for return flights WITHOUT joining airlines table
             if ($trip_type == 'round-trip' && !empty($return_date)) {
                 $return_flights = [];
                 
-                $return_query = "SELECT f.*, a.logo_url 
+                $return_query = "SELECT f.* 
                                 FROM flights f 
-                                LEFT JOIN airlines a ON f.airline = a.name 
                                 WHERE (LOWER(f.departure_city) = LOWER(?) OR SOUNDEX(f.departure_city) = SOUNDEX(?))
                                 AND (LOWER(f.arrival_city) = LOWER(?) OR SOUNDEX(f.arrival_city) = SOUNDEX(?))
                                 AND f.seats_available >= ?
@@ -487,13 +485,10 @@ function getCityImage($city, $cityImages, $baseUrl) {
                                     <!-- Airline Info -->
                                     <div class="col-md-3 mb-3 mb-md-0">
                                         <div class="d-flex align-items-center">
-                                            <?php if (isset($flight['logo_url']) && !empty($flight['logo_url'])): ?>
-                                                <img src="<?php echo htmlspecialchars($flight['logo_url']); ?>" alt="<?php echo htmlspecialchars($flight['airline']); ?>" class="airline-logo me-3">
-                                            <?php else: ?>
-                                                <div class="bg-light p-2 rounded-circle me-3">
-                                                    <i class="fas fa-plane text-primary"></i>
-                                                </div>
-                                            <?php endif; ?>
+                                            <?php /* Removed logo_url reference, using an airline avatar instead */ ?>
+                                            <div class="bg-light p-2 rounded-circle me-3">
+                                                <i class="fas fa-plane text-primary"></i>
+                                            </div>
                                             <div>
                                                 <h6 class="mb-0"><?php echo htmlspecialchars($flight['airline']); ?></h6>
                                                 <span class="text-muted small"><?php echo htmlspecialchars($flight['flight_number']); ?></span>
@@ -579,13 +574,9 @@ function getCityImage($city, $cityImages, $baseUrl) {
                                             <!-- Airline Info -->
                                             <div class="col-md-3 mb-3 mb-md-0">
                                                 <div class="d-flex align-items-center">
-                                                    <?php if (isset($flight['logo_url']) && !empty($flight['logo_url'])): ?>
-                                                        <img src="<?php echo htmlspecialchars($flight['logo_url']); ?>" alt="<?php echo htmlspecialchars($flight['airline']); ?>" class="airline-logo me-3">
-                                                    <?php else: ?>
-                                                        <div class="bg-light p-2 rounded-circle me-3">
-                                                            <i class="fas fa-plane text-primary"></i>
-                                                        </div>
-                                                    <?php endif; ?>
+                                                    <div class="bg-light p-2 rounded-circle me-3">
+                                                        <i class="fas fa-plane text-primary"></i>
+                                                    </div>
                                                     <div>
                                                         <h6 class="mb-0"><?php echo htmlspecialchars($flight['airline']); ?></h6>
                                                         <span class="text-muted small"><?php echo htmlspecialchars($flight['flight_number']); ?></span>

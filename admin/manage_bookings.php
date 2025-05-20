@@ -606,27 +606,27 @@ if ($columns_result && $columns_result->num_rows > 0) {
                                                     Actions
                                                 </button>
                                                 <ul class="dropdown-menu">
-                                                    <li><a class="dropdown-item" href="booking_details.php?id=<?php echo $booking['booking_id']; ?>">
-                                                        <i class="fas fa-eye me-2"></i> View Details
-                                                    </a></li>
-                                                    <li><a class="dropdown-item" href="#" onclick="changeStatus(<?php echo $booking['booking_id']; ?>, '<?php echo $booking['booking_status']; ?>', '<?php echo $booking['payment_status']; ?>')">
-                                                        <i class="fas fa-edit me-2"></i> Update Status
-                                                    </a></li>
-                                                    <li><hr class="dropdown-divider"></li>
-                                                    <?php if ($booking['booking_status'] !== 'cancelled' && $booking['booking_status'] !== 'completed'): ?>
-                                                    <li><a class="dropdown-item text-warning" href="#" onclick="confirmCancel(<?php echo $booking['booking_id']; ?>)">
-                                                        <i class="fas fa-ban me-2"></i> Cancel Booking
-                                                    </a></li>
-                                                    <?php endif; ?>
-                                                    <?php if ($booking['payment_status'] === 'completed' && $booking['booking_status'] !== 'refunded'): ?>
-                                                    <li><a class="dropdown-item text-info" href="#" onclick="processRefund(<?php echo $booking['booking_id']; ?>, <?php echo $booking['total_amount']; ?>)">
-                                                        <i class="fas fa-undo me-2"></i> Process Refund
-                                                    </a></li>
-                                                    <?php endif; ?>
-                                                    <li><a class="dropdown-item text-danger" href="#" onclick="confirmDelete(<?php echo $booking['booking_id']; ?>, '<?php echo str_pad($booking['booking_id'], 6, '0', STR_PAD_LEFT); ?>')">
-                                                        <i class="fas fa-trash-alt me-2"></i> Delete Booking
-                                                    </a></li>
-                                                </ul>
+    <li><a class="dropdown-item" href="booking_details.php?id=<?php echo $booking['booking_id']; ?>">
+        <i class="fas fa-eye me-2"></i> View Details
+    </a></li>
+    <li><a class="dropdown-item" href="#" onclick="changeStatus(<?php echo $booking['booking_id']; ?>, '<?php echo $booking['booking_status']; ?>', '<?php echo $booking['payment_status']; ?>')">
+        <i class="fas fa-edit me-2"></i> Update Status
+    </a></li>
+    <li><hr class="dropdown-divider"></li>
+    <?php if ($booking['booking_status'] !== 'cancelled' && $booking['booking_status'] !== 'completed'): ?>
+    <li><a class="dropdown-item text-warning" href="#" onclick="confirmCancel(<?php echo $booking['booking_id']; ?>)">
+        <i class="fas fa-ban me-2"></i> Cancel Booking
+    </a></li>
+    <?php endif; ?>
+    <?php if ($booking['payment_status'] === 'completed' && $booking['booking_status'] !== 'refunded'): ?>
+    <li><a class="dropdown-item text-info" href="#" onclick="processRefund(<?php echo $booking['booking_id']; ?>, <?php echo $booking['total_amount']; ?>)">
+        <i class="fas fa-undo me-2"></i> Process Refund
+    </a></li>
+    <?php endif; ?>
+    <li><a class="dropdown-item text-danger" href="#" onclick="confirmDelete(<?php echo $booking['booking_id']; ?>, '<?php echo str_pad($booking['booking_id'], 6, '0', STR_PAD_LEFT); ?>')">
+        <i class="fas fa-trash-alt me-2"></i> Delete Booking
+    </a></li>
+</ul>
                                             </div>
                                         </td>
                                     </tr>

@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 require_once '../db/db_config.php';
 
 // Check if action is set
-if (!isset($_POST['action'])) {
+if (!isset($_POST['action']) && !isset($_GET['action'])) {
     $_SESSION['booking_status'] = [
         'type' => 'danger',
         'message' => 'No action specified'
@@ -20,10 +20,30 @@ if (!isset($_POST['action'])) {
     exit();
 }
 
-$action = $_POST['action'];
+// Get action from POST or GET
+$action = isset($_POST['action']) ? $_POST['action'] : $_GET['action'];
+
+// Handle view booking action
+if ($action === 'view') {
+    $booking_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    
+    // Validate booking ID
+    if ($booking_id <= 0) {
+        $_SESSION['booking_status'] = [
+            'type' => 'danger',
+            'message' => 'Invalid booking ID'
+        ];
+        header("Location: manage_bookings.php");
+        exit();
+    }
+    
+    // Redirect to booking details page
+    header("Location: booking_details.php?id=" . $booking_id);
+    exit();
+}
 
 // Handle update status action
-if ($action === 'update_status') {
+elseif ($action === 'update_status') {
     // Get form data
     $booking_id = $_POST['booking_id'] ?? 0;
     $booking_status = $_POST['booking_status'] ?? '';
@@ -510,3 +530,4 @@ function sendRefundEmail($booking, $refund_amount, $reason) {
     // Log email content for debugging
     error_log("Email would be sent to $to with subject: $subject and message: $message");
 }
+?>

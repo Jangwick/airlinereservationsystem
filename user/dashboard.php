@@ -293,39 +293,20 @@ try {
             </div>
         </div>
 
-        <!-- Quick Search & Featured Offers -->
+        <!-- Quick Booking Section - Replaced search form -->
         <div class="row">
             <div class="col-12 mb-4">
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white py-3">
-                        <h5 class="mb-0">Quick Flight Search</h5>
+                        <h5 class="mb-0">Book a Flight</h5>
                     </div>
-                    <div class="card-body">
-                        <form action="../flights/search.php" method="get" class="row g-3">
-                            <div class="col-md-3">
-                                <label for="departure_city" class="form-label">From</label>
-                                <input type="text" class="form-control" id="departure_city" name="departure_city" placeholder="City or Airport">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="arrival_city" class="form-label">To</label>
-                                <input type="text" class="form-control" id="arrival_city" name="arrival_city" placeholder="City or Airport">
-                            </div>
-                            <div class="col-md-2">
-                                <label for="departure_date" class="form-label">Departure Date</label>
-                                <input type="date" class="form-control" id="departure_date" name="departure_date">
-                            </div>
-                            <div class="col-md-2">
-                                <label for="passengers" class="form-label">Passengers</label>
-                                <select class="form-select" id="passengers" name="passengers">
-                                    <?php for ($i = 1; $i <= 10; $i++): ?>
-                                        <option value="<?php echo $i; ?>"><?php echo $i; ?></option>
-                                    <?php endfor; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-2 d-flex align-items-end">
-                                <button type="submit" class="btn btn-primary w-100">Search Flights</button>
-                            </div>
-                        </form>
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-plane-departure fa-4x text-primary mb-3"></i>
+                        <h4 class="mb-3">Ready for your next adventure?</h4>
+                        <p class="mb-4">View our available flights and book your next journey with us.</p>
+                        <a href="../flights/list.php" class="btn btn-primary btn-lg">
+                            <i class="fas fa-list me-2"></i>View Available Flights
+                        </a>
                     </div>
                 </div>
             </div>
