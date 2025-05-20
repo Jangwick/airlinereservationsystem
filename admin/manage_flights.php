@@ -142,6 +142,26 @@ $stats_query = "SELECT
                 FROM flights";
 $stats_result = $conn->query($stats_query);
 $stats = $stats_result->fetch_assoc();
+
+// Add a utility function to check flight prices
+function checkAndFixFlightPrices($conn) {
+    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM flights WHERE price = 0 OR price IS NULL");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $count = $result->fetch_assoc()['count'];
+    
+    if ($count > 0) {
+        echo '<div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Warning:</strong> Found ' . $count . ' flights with zero or missing prices.
+                These flights will show $0.00 to users.
+                <a href="fix_flight_prices.php" class="btn btn-sm btn-warning ms-2">Fix Prices</a>
+              </div>';
+    }
+}
+
+// Call this function before displaying the flight table
+checkAndFixFlightPrices($conn);
 ?>
 
 

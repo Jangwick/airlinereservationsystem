@@ -19,6 +19,9 @@ $booking_data = $_SESSION['booking_data'];
 $flight_id = $booking_data['flight_id'];
 $passengers = $booking_data['passengers'];
 $passenger_data = $booking_data['passenger_data'];
+$base_fare = $booking_data['base_fare'];
+$taxes_fees = $booking_data['taxes_fees'];
+$price_per_passenger = $booking_data['price_per_passenger'];
 $total_price = $booking_data['total_price'];
 
 // Get flight details
@@ -318,23 +321,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_booking'])) {
                             <h5 class="mb-0">Price Summary</h5>
                         </div>
                         <div class="card-body">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Base Fare (per passenger)</span>
-                                <span>$<?php echo number_format($flight['price'], 2); ?></span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Passengers</span>
-                                <span><?php echo $passengers; ?></span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Taxes & Fees</span>
-                                <span>Included</span>
-                            </div>
-                            <hr>
-                            <div class="d-flex justify-content-between fw-bold">
-                                <span>Total</span>
-                                <span>$<?php echo number_format($total_price, 2); ?></span>
-                            </div>
+                            <table class="table table-borderless">
+                                <tbody>
+                                    <tr>
+                                        <td>Base Fare (per passenger)</td>
+                                        <td class="text-end">$<?php echo number_format($base_fare, 2); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Taxes & Fees (per passenger)</td>
+                                        <td class="text-end">$<?php echo number_format($taxes_fees, 2); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Price per passenger</td>
+                                        <td class="text-end">$<?php echo number_format($price_per_passenger, 2); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Passengers</td>
+                                        <td class="text-end"><?php echo $passengers; ?></td>
+                                    </tr>
+                                    <tr class="border-top">
+                                        <th>Total price</th>
+                                        <th class="text-end">$<?php echo number_format($total_price, 2); ?></th>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 

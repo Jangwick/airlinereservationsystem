@@ -4,41 +4,49 @@ session_start();
 // Include database connection
 require_once '../db/db_config.php';
 
-// Initialize filter variables
-$filter_departure = isset($_GET['departure']) ? $_GET['departure'] : '';
-$filter_arrival = isset($_GET['arrival']) ? $_GET['arrival'] : '';
-$filter_date = isset($_GET['date']) ? $_GET['date'] : '';
-$filter_airline = isset($_GET['airline']) ? $_GET['airline'] : '';
+// Common function to get base URL
+if (!function_exists('getBaseUrl')) {
+    function getBaseUrl() {
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        return $protocol . '://' . $host . '/airlinereservationsystem/';
+    }
+}
+$baseUrl = getBaseUrl();
 
-// Base query
-$query = "SELECT f.*, f.price as flight_price FROM flights f WHERE f.departure_time > NOW()";
-
-// If status column exists, add condition
-if ($status_column_exists) {
-    $query .= " AND (f.status = 'scheduled' OR f.status = 'delayed')";
+// Check if 'status' column exists in flights table
+$status_column_exists = true; // Initialize the variable
+try {
+    $result = $conn->query("SHOW COLUMNS FROM flights LIKE 'status'");
+    $status_column_exists = ($result && $result->num_rows > 0);
+} catch (Exception $e) {
+    $status_column_exists = false;
 }
 
-// Add sorting
-$query .= " ORDER BY f.departure_time ASC";
+// Initialize filters
+$filter_date = isset($_GET['date']) ? $_GET['date'] : '';
+$filter_airline = isset($_GET['airline']) ? $_GET['airline'] : '';
+$filter_departure = isset($_GET['departure']) ? $_GET['departure'] : '';
+$filter_arrival = isset($_GET['arrival']) ? $_GET['arrival'] : '';
+$filter_status = isset($_GET['status']) ? $_GET['status'] : '';
+
+// Limit for pagination
+$limit = 10;
+$page = isset($_GET['page']) ? intval($_GET['page']) : 1;
+$offset = ($page - 1) * $limit;
+
+// Base query - fixed SQL syntax issue
+$query = "SELECT f.*, 
+         (CASE WHEN f.price > 0 THEN f.price * 0.85 ELSE 200 END) as base_fare,
+         (CASE WHEN f.price > 0 THEN f.price * 0.15 ELSE 30 END) as taxes_fees,
+         (f.total_seats - COALESCE((SELECT SUM(passengers) FROM bookings WHERE flight_id = f.flight_id AND booking_status != 'cancelled'), 0)) AS available_seats
+         FROM flights f 
+         WHERE 1=1";
 
 $params = [];
 $types = "";
 
 // Add filters
-if (!empty($filter_departure)) {
-    $query .= " AND (departure_city LIKE ? OR departure_airport LIKE ?)";
-    $params[] = "%$filter_departure%";
-    $params[] = "%$filter_departure%";
-    $types .= "ss";
-}
-
-if (!empty($filter_arrival)) {
-    $query .= " AND (arrival_city LIKE ? OR arrival_airport LIKE ?)";
-    $params[] = "%$filter_arrival%";
-    $params[] = "%$filter_arrival%";
-    $types .= "ss";
-}
-
 if (!empty($filter_date)) {
     $query .= " AND DATE(departure_time) = ?";
     $params[] = $filter_date;
@@ -46,46 +54,135 @@ if (!empty($filter_date)) {
 }
 
 if (!empty($filter_airline)) {
-    $query .= " AND airline LIKE ?";
-    $params[] = "%$filter_airline%";
+    $query .= " AND airline = ?";
+    $params[] = $filter_airline;
     $types .= "s";
 }
 
-// Prepare and execute query
+if (!empty($filter_departure)) {
+    $query .= " AND departure_city = ?";
+    $params[] = $filter_departure;
+    $types .= "s";
+}
+
+if (!empty($filter_arrival)) {
+    $query .= " AND arrival_city = ?";
+    $params[] = $filter_arrival;
+    $types .= "s";
+}
+
+if ($status_column_exists && !empty($filter_status)) {
+    $query .= " AND status = ?";
+    $params[] = $filter_status;
+    $types .= "s";
+}
+
+// Count total matching flights
+$count_query = $query;
+$count_stmt = $conn->prepare($count_query);
+if (!empty($params)) {
+    $count_stmt->bind_param($types, ...$params);
+}
+$count_stmt->execute();
+$count_result = $count_stmt->get_result();
+$total_flights = $count_result->num_rows;
+$total_pages = ceil($total_flights / $limit);
+
+// Add pagination to query
+$query .= " ORDER BY departure_time ASC LIMIT ?, ?";
+$params[] = $offset;
+$params[] = $limit;
+$types .= "ii";
+
+// Execute query
 $stmt = $conn->prepare($query);
 if (!empty($params)) {
     $stmt->bind_param($types, ...$params);
 }
 $stmt->execute();
 $result = $stmt->get_result();
-
 $flights = [];
 while ($row = $result->fetch_assoc()) {
     $flights[] = $row;
 }
 
-// Get distinct departure cities for filter dropdown
-$departure_cities_query = "SELECT DISTINCT departure_city FROM flights WHERE departure_time > NOW() ORDER BY departure_city";
-$departure_cities_result = $conn->query($departure_cities_query);
-$departure_cities = [];
-while ($row = $departure_cities_result->fetch_assoc()) {
-    $departure_cities[] = $row['departure_city'];
-}
-
-// Get distinct arrival cities for filter dropdown
-$arrival_cities_query = "SELECT DISTINCT arrival_city FROM flights WHERE departure_time > NOW() ORDER BY arrival_city";
-$arrival_cities_result = $conn->query($arrival_cities_query);
-$arrival_cities = [];
-while ($row = $arrival_cities_result->fetch_assoc()) {
-    $arrival_cities[] = $row['arrival_city'];
-}
-
 // Get distinct airlines for filter dropdown
-$airlines_query = "SELECT DISTINCT airline FROM flights WHERE departure_time > NOW() ORDER BY airline";
+$airlines_query = "SELECT DISTINCT airline FROM flights ORDER BY airline";
 $airlines_result = $conn->query($airlines_query);
 $airlines = [];
 while ($row = $airlines_result->fetch_assoc()) {
     $airlines[] = $row['airline'];
+}
+
+// Get distinct departure cities for filter dropdown
+$departures_query = "SELECT DISTINCT departure_city FROM flights ORDER BY departure_city";
+$departures_result = $conn->query($departures_query);
+$departures = [];
+while ($row = $departures_result->fetch_assoc()) {
+    $departures[] = $row['departure_city'];
+}
+
+// Get distinct arrival cities for filter dropdown
+$arrivals_query = "SELECT DISTINCT arrival_city FROM flights ORDER BY arrival_city";
+$arrivals_result = $conn->query($arrivals_query);
+$arrivals = [];
+while ($row = $arrivals_result->fetch_assoc()) {
+    $arrivals[] = $row['arrival_city'];
+}
+
+// Get statuses for filter dropdown (if column exists)
+$statuses = [];
+if ($status_column_exists) {
+    $statuses_query = "SELECT DISTINCT status FROM flights WHERE status IS NOT NULL ORDER BY status";
+    $statuses_result = $conn->query($statuses_query);
+    if ($statuses_result) {
+        while ($row = $statuses_result->fetch_assoc()) {
+            $statuses[] = $row['status'];
+        }
+    }
+}
+$statuses = array_filter($statuses); // Remove empty values
+
+// Add default statuses if none found
+if (empty($statuses)) {
+    $statuses = ['scheduled', 'delayed', 'cancelled', 'departed', 'arrived'];
+}
+
+// Format flight date and duration function
+function formatFlightDuration($departure, $arrival) {
+    $dep = new DateTime($departure);
+    $arr = new DateTime($arrival);
+    $interval = $dep->diff($arr);
+    return sprintf('%dh %dm', $interval->h + ($interval->days * 24), $interval->i);
+}
+
+// Get default number of passengers
+$default_passengers = isset($_GET['passengers']) ? intval($_GET['passengers']) : 1;
+if ($default_passengers < 1 || $default_passengers > 9) {
+    $default_passengers = 1;
+}
+
+// Current date for default filter
+$current_date = date('Y-m-d');
+
+// Function to determine CSS class for a flight status
+function getStatusClass($status) {
+    switch(strtolower($status)) {
+        case 'scheduled': return 'success';
+        case 'delayed': return 'warning';
+        case 'cancelled': return 'danger';
+        case 'departed': return 'primary';
+        case 'arrived': return 'info';
+        default: return 'secondary';
+    }
+}
+
+// Check if flights are available for future dates
+$future_flights_available = false;
+$future_flights_query = "SELECT 1 FROM flights WHERE departure_time > NOW() LIMIT 1";
+$future_flights_result = $conn->query($future_flights_query);
+if ($future_flights_result && $future_flights_result->num_rows > 0) {
+    $future_flights_available = true;
 }
 ?>
 
@@ -125,7 +222,7 @@ while ($row = $airlines_result->fetch_assoc()) {
                         <label for="departure" class="form-label">Departure City</label>
                         <select class="form-select" id="departure" name="departure">
                             <option value="">All Departure Cities</option>
-                            <?php foreach ($departure_cities as $city): ?>
+                            <?php foreach ($departures as $city): ?>
                                 <option value="<?php echo htmlspecialchars($city); ?>" <?php echo ($filter_departure == $city) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($city); ?>
                                 </option>
@@ -136,7 +233,7 @@ while ($row = $airlines_result->fetch_assoc()) {
                         <label for="arrival" class="form-label">Arrival City</label>
                         <select class="form-select" id="arrival" name="arrival">
                             <option value="">All Arrival Cities</option>
-                            <?php foreach ($arrival_cities as $city): ?>
+                            <?php foreach ($arrivals as $city): ?>
                                 <option value="<?php echo htmlspecialchars($city); ?>" <?php echo ($filter_arrival == $city) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($city); ?>
                                 </option>
@@ -154,6 +251,17 @@ while ($row = $airlines_result->fetch_assoc()) {
                             <?php foreach ($airlines as $airline): ?>
                                 <option value="<?php echo htmlspecialchars($airline); ?>" <?php echo ($filter_airline == $airline) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($airline); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">All Statuses</option>
+                            <?php foreach ($statuses as $status): ?>
+                                <option value="<?php echo htmlspecialchars($status); ?>" <?php echo ($filter_status == $status) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($status); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -232,22 +340,23 @@ while ($row = $airlines_result->fetch_assoc()) {
                                     </div>
                                     
                                     <!-- Pricing and Action -->
-                                    <div class="col-md-4">
-                                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
-                                            <div class="mb-3 mb-md-0 text-center text-md-start">
-                                                <div class="small text-muted">Starting from</div>
-                                                <div class="h3 mb-0 text-primary">$<?php echo number_format($flight['price'], 2); ?></div>
-                                                <div class="small text-muted">per person</div>
-                                            </div>
-                                            <div class="text-center">
-                                                <a href="../booking/book.php?flight_id=<?php echo $flight['flight_id']; ?>" class="btn btn-primary">
-                                                    <i class="fas fa-ticket-alt me-2"></i>Book Now
-                                                </a>
-                                                <a href="details.php?id=<?php echo $flight['flight_id']; ?>" class="btn btn-link text-decoration-none d-block mt-2">
-                                                    View Details
-                                                </a>
-                                            </div>
-                                        </div>
+                                    <div class="col-md-3 text-center text-md-end">
+                                        <div class="h4 text-primary mb-2">$<?php echo number_format($flight['base_fare'], 2); ?></div>
+                                        <div class="text-muted small mb-2">base fare per passenger</div>
+                                        <div class="text-muted small mb-3">Total: $<?php echo number_format($flight['price'], 2); ?></div>
+                                        
+                                        <a href="flight_details.php?id=<?php echo $flight['flight_id']; ?>&passengers=<?php echo $default_passengers; ?>" class="btn btn-outline-primary btn-sm mb-2 w-100">
+                                            <i class="fas fa-info-circle me-1"></i>Details
+                                        </a>
+                                        
+                                        <a href="../booking/select_flight.php?flight_id=<?php echo $flight['flight_id']; ?>&passengers=<?php echo $default_passengers; ?>" 
+                                           class="btn btn-primary btn-sm w-100 <?php echo ($flight['available_seats'] < $default_passengers) ? 'disabled' : ''; ?>">
+                                            <?php if ($flight['available_seats'] < $default_passengers): ?>
+                                                Sold Out
+                                            <?php else: ?>
+                                                Book Now <i class="fas fa-arrow-right ms-1"></i>
+                                            <?php endif; ?>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -264,6 +373,37 @@ while ($row = $airlines_result->fetch_assoc()) {
                     </div>
                 </div>
             <?php endif; ?>
+        </div>
+
+        <!-- Pagination -->
+        <div class="row">
+            <div class="col-12">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        <?php if ($page > 1): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?page=<?php echo $page - 1; ?>" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
+
+                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                            <li class="page-item <?php echo ($i == $page) ? 'active' : ''; ?>">
+                                <a class="page-link" href="?page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                            </li>
+                        <?php endfor; ?>
+
+                        <?php if ($page < $total_pages): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?page=<?php echo $page + 1; ?>" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
+                    </ul>
+                </nav>
+            </div>
         </div>
     </div>
 

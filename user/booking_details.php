@@ -21,7 +21,9 @@ if ($booking_id <= 0) {
 
 // Get booking details
 $stmt = $conn->prepare("SELECT b.*, f.flight_number, f.airline, f.departure_city, f.arrival_city, 
-                      f.departure_time, f.arrival_time, f.price 
+                      f.departure_time, f.arrival_time, f.price,
+                      (f.price * 0.85) as base_fare,
+                      (f.price * 0.15) as taxes_fees
                       FROM bookings b 
                       JOIN flights f ON b.flight_id = f.flight_id 
                       WHERE b.booking_id = ? AND b.user_id = ?");
@@ -554,11 +556,11 @@ $can_cancel = $booking['booking_status'] != 'cancelled' && $booking['booking_sta
                                     <tbody>
                                         <tr>
                                             <td>Base Fare (<?php echo $passenger_count; ?> passenger<?php echo $passenger_count > 1 ? 's' : ''; ?>)</td>
-                                            <td class="text-end">$<?php echo number_format($booking['price'] * $passenger_count, 2); ?></td>
+                                            <td class="text-end">$<?php echo number_format(($booking['base_fare'] ?? ($booking['price'] * 0.85)) * $passenger_count, 2); ?></td>
                                         </tr>
                                         <tr>
                                             <td>Taxes & Fees</td>
-                                            <td class="text-end">Included</td>
+                                            <td class="text-end">$<?php echo number_format(($booking['taxes_fees'] ?? ($booking['price'] * 0.15)) * $passenger_count, 2); ?></td>
                                         </tr>
                                         <?php if ($booking['total_amount'] > ($booking['price'] * $passenger_count)): ?>
                                         <tr>

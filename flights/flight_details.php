@@ -19,9 +19,12 @@ if ($flight_id <= 0) {
     exit();
 }
 
-// Get flight details
-$stmt = $conn->prepare("SELECT f.*, 
-                     (f.total_seats - COALESCE((SELECT SUM(b.passengers) FROM bookings b WHERE b.flight_id = f.flight_id AND b.booking_status != 'cancelled'), 0)) AS available_seats
+// Get flight details with proper handling of zero prices
+$stmt = $conn->prepare("SELECT f.*,
+                     (CASE WHEN f.price > 0 THEN f.price * 0.85 ELSE 200 END) as base_fare,
+                     (CASE WHEN f.price > 0 THEN f.price * 0.15 ELSE 30 END) as taxes_fees,
+                     (f.total_seats - COALESCE((SELECT SUM(b.passengers) FROM bookings b 
+                     WHERE b.flight_id = f.flight_id AND b.booking_status != 'cancelled'), 0)) AS available_seats
                      FROM flights f 
                      WHERE f.flight_id = ?");
 $stmt->bind_param("i", $flight_id);
@@ -189,26 +192,27 @@ function formatStatus($status) {
                         
                         <div class="row g-5">
                             <div class="col-md-5">
-                                <div class="text-muted small">Departure</div>
-                                <h5 class="mb-0"><?php echo htmlspecialchars($flight['departure_city']); ?></h5>
+                                <div class="text-muted small">From</div>
+                                <h5 class="mb-1"><?php echo htmlspecialchars($flight['departure_city']); ?></h5>
                                 <div class="fw-bold"><?php echo $departure_time; ?></div>
-                                <div class="text-muted"><?php echo $departure_date; ?></div>
+                                <div class="text-muted small"><?php echo $departure_date; ?></div>
                             </div>
                             
                             <div class="col-md-2 d-flex flex-column align-items-center justify-content-center">
-                                <div class="text-muted small text-center mb-1"><?php echo $duration; ?></div>
-                                <div class="flight-path w-100">
+                                <div class="text-muted small mb-2">Duration</div>
+                                <div class="fw-bold"><?php echo $duration; ?></div>
+                                <div class="flight-path position-relative my-3 w-100">
                                     <div class="flight-path-line"></div>
                                     <i class="fas fa-plane"></i>
                                 </div>
-                                <div class="text-muted small text-center mt-1">Direct</div>
+                                <div class="text-muted small">Direct Flight</div>
                             </div>
                             
                             <div class="col-md-5 text-md-end">
-                                <div class="text-muted small">Arrival</div>
-                                <h5 class="mb-0"><?php echo htmlspecialchars($flight['arrival_city']); ?></h5>
+                                <div class="text-muted small">To</div>
+                                <h5 class="mb-1"><?php echo htmlspecialchars($flight['arrival_city']); ?></h5>
                                 <div class="fw-bold"><?php echo $arrival_time; ?></div>
-                                <div class="text-muted"><?php echo $arrival_date; ?></div>
+                                <div class="text-muted small"><?php echo $arrival_date; ?></div>
                             </div>
                         </div>
                         
@@ -216,20 +220,20 @@ function formatStatus($status) {
                         
                         <div class="row row-cols-2 row-cols-md-4 g-3">
                             <div class="col">
-                                <div class="text-muted small">Flight Number</div>
-                                <div><?php echo htmlspecialchars($flight['flight_number']); ?></div>
+                                <div class="text-muted small">Aircraft Type</div>
+                                <div><?php echo isset($flight['aircraft_type']) ? htmlspecialchars($flight['aircraft_type']) : 'Standard Aircraft'; ?></div>
                             </div>
                             <div class="col">
-                                <div class="text-muted small">Aircraft</div>
-                                <div><?php echo isset($flight['aircraft']) ? htmlspecialchars($flight['aircraft']) : 'Standard Aircraft'; ?></div>
+                                <div class="text-muted small">Flight Class</div>
+                                <div>Economy</div>
                             </div>
                             <div class="col">
-                                <div class="text-muted small">Duration</div>
-                                <div><?php echo $duration; ?></div>
+                                <div class="text-muted small">Available Seats</div>
+                                <div><?php echo $flight['available_seats'] ?? 'N/A'; ?></div>
                             </div>
                             <div class="col">
-                                <div class="text-muted small">Distance</div>
-                                <div><?php echo isset($flight['distance']) ? htmlspecialchars($flight['distance']) . ' km' : 'N/A'; ?></div>
+                                <div class="text-muted small">Base Price</div>
+                                <div class="fw-bold text-primary">$<?php echo number_format(max(1, $flight['base_fare']), 2); ?></div>
                             </div>
                         </div>
                     </div>
@@ -246,57 +250,57 @@ function formatStatus($status) {
                                 <div class="feature-icon">
                                     <i class="fas fa-wifi"></i>
                                 </div>
-                                <h6 class="mb-1">Wi-Fi</h6>
-                                <p class="small text-muted mb-0">Available</p>
+                                <p class="mb-0">Wi-Fi</p>
+                                <p class="small text-muted">Available</p>
                             </div>
                             <div class="col">
                                 <div class="feature-icon">
                                     <i class="fas fa-utensils"></i>
                                 </div>
-                                <h6 class="mb-1">Meals</h6>
-                                <p class="small text-muted mb-0">Complimentary</p>
+                                <p class="mb-0">Meals</p>
+                                <p class="small text-muted">Complimentary</p>
                             </div>
                             <div class="col">
                                 <div class="feature-icon">
                                     <i class="fas fa-tv"></i>
                                 </div>
-                                <h6 class="mb-1">Entertainment</h6>
-                                <p class="small text-muted mb-0">On-demand</p>
+                                <p class="mb-0">Entertainment</p>
+                                <p class="small text-muted">Personal TV</p>
                             </div>
                             <div class="col">
                                 <div class="feature-icon">
-                                    <i class="fas fa-plug"></i>
+                                    <i class="fas fa-charging-station"></i>
                                 </div>
-                                <h6 class="mb-1">Power</h6>
-                                <p class="small text-muted mb-0">At every seat</p>
+                                <p class="mb-0">Power</p>
+                                <p class="small text-muted">USB & AC</p>
                             </div>
                             <div class="col">
                                 <div class="feature-icon">
                                     <i class="fas fa-suitcase"></i>
                                 </div>
-                                <h6 class="mb-1">Baggage</h6>
-                                <p class="small text-muted mb-0">20kg included</p>
+                                <p class="mb-0">Baggage</p>
+                                <p class="small text-muted">20kg included</p>
                             </div>
                             <div class="col">
                                 <div class="feature-icon">
                                     <i class="fas fa-couch"></i>
                                 </div>
-                                <h6 class="mb-1">Seat</h6>
-                                <p class="small text-muted mb-0">Standard</p>
+                                <p class="mb-0">Seat Selection</p>
+                                <p class="small text-muted">Free</p>
                             </div>
                             <div class="col">
                                 <div class="feature-icon">
-                                    <i class="fas fa-wheelchair"></i>
+                                    <i class="fas fa-exchange-alt"></i>
                                 </div>
-                                <h6 class="mb-1">Assistance</h6>
-                                <p class="small text-muted mb-0">Available</p>
+                                <p class="mb-0">Changes</p>
+                                <p class="small text-muted">Fee applies</p>
                             </div>
                             <div class="col">
                                 <div class="feature-icon">
-                                    <i class="fas fa-baby"></i>
+                                    <i class="fas fa-undo-alt"></i>
                                 </div>
-                                <h6 class="mb-1">Infant</h6>
-                                <p class="small text-muted mb-0">Facilities</p>
+                                <p class="mb-0">Cancellation</p>
+                                <p class="small text-muted">Fee applies</p>
                             </div>
                         </div>
                     </div>
@@ -312,16 +316,28 @@ function formatStatus($status) {
                             <table class="table table-borderless">
                                 <tbody>
                                     <tr>
-                                        <td>Base Fare (per passenger)</td>
-                                        <td class="text-end">$<?php echo number_format($flight['price'], 2); ?></td>
+                                        <th style="width: 50%;">Fare Type</th>
+                                        <td>Economy Standard</td>
                                     </tr>
                                     <tr>
-                                        <td>Taxes & Fees</td>
-                                        <td class="text-end">Included</td>
+                                        <th>Base Fare (per passenger)</th>
+                                        <td>$<?php echo number_format(max(1, $flight['base_fare']), 2); ?></td>
                                     </tr>
-                                    <tr class="fw-bold">
-                                        <td>Total (per passenger)</td>
-                                        <td class="text-end">$<?php echo number_format($flight['price'], 2); ?></td>
+                                    <tr>
+                                        <th>Taxes & Fees (per passenger)</th>
+                                        <td>$<?php echo number_format(max(1, $flight['taxes_fees']), 2); ?></td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <th>Total Fare (per passenger)</th>
+                                        <td class="fw-bold">$<?php echo number_format($flight['price'], 2); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>Selected Passengers</th>
+                                        <td><?php echo $passenger_count; ?></td>
+                                    </tr>
+                                    <tr class="border-top">
+                                        <th>Total Price for <?php echo $passenger_count; ?> passenger<?php echo $passenger_count > 1 ? 's' : ''; ?></th>
+                                        <td class="fw-bold text-primary h5">$<?php echo number_format($flight['price'] * $passenger_count, 2); ?></td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -343,8 +359,8 @@ function formatStatus($status) {
                     <div class="card-body">
                         <div class="d-flex justify-content-between mb-3">
                             <div>
-                                <h3 class="text-primary mb-0">$<?php echo number_format($flight['price'], 2); ?></h3>
-                                <div class="text-muted small">per passenger</div>
+                                <h3 class="text-primary mb-0">$<?php echo number_format(max(1, $flight['base_fare']), 2); ?></h3>
+                                <div class="text-muted small">base fare per passenger</div>
                             </div>
                             <div class="text-end">
                                 <div class="badge bg-<?php echo getStatusClass($flight['status']); ?> mb-1">
@@ -367,22 +383,31 @@ function formatStatus($status) {
                             </select>
                         </div>
                         
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Passengers</span>
-                            <span id="passenger-count"><?php echo $passenger_count; ?></span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Base Fare</span>
-                            <span>$<?php echo number_format($flight['price'], 2); ?> x <span id="passenger-multiplier"><?php echo $passenger_count; ?></span></span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Taxes & Fees</span>
-                            <span>Included</span>
-                        </div>
-                        <hr>
-                        <div class="d-flex justify-content-between fw-bold">
-                            <span>Total</span>
-                            <span id="total-price">$<?php echo number_format($flight['price'] * $passenger_count, 2); ?></span>
+                        <div class="table-responsive">
+                            <table class="table table-borderless mb-0">
+                                <tbody>
+                                    <tr>
+                                        <td>Base fare per passenger</td>
+                                        <td class="text-end">$<?php echo number_format($flight['base_fare'], 2); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Taxes & fees per passenger</td>
+                                        <td class="text-end">$<?php echo number_format($flight['taxes_fees'], 2); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Price per passenger</td>
+                                        <td class="text-end fw-bold">$<?php echo number_format($flight['price'], 2); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Passengers</td>
+                                        <td class="text-end"><span id="passenger-count"><?php echo $passenger_count; ?></span></td>
+                                    </tr>
+                                    <tr class="border-top fw-bold">
+                                        <td>Total amount</td>
+                                        <td class="text-end" id="total-price">$<?php echo number_format($flight['price'] * $passenger_count, 2); ?></td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                         
                         <div class="mt-4">
@@ -462,11 +487,13 @@ function formatStatus($status) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Update passenger count and total price
+        // Update passenger count and total price with fallback for zero prices
         function updatePassengerCount(count) {
-            const basePrice = <?php echo $flight['price']; ?>;
+            const basePrice = <?php echo max(1, $flight['price']); ?>;
+            const baseFare = <?php echo max(1, $flight['base_fare']); ?>;
+            const taxesFees = <?php echo max(1, $flight['taxes_fees']); ?>;
+            
             document.getElementById('passenger-count').textContent = count;
-            document.getElementById('passenger-multiplier').textContent = count;
             document.getElementById('total-price').textContent = '$' + (basePrice * count).toFixed(2);
             
             // Update booking link

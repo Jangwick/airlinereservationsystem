@@ -4,37 +4,59 @@ session_start();
 // Include database connection
 require_once '../db/db_config.php';
 
-// Check if booking was successful
-if (!isset($_SESSION['booking_success']) || !isset($_GET['booking_id'])) {
+// Check if booking was successful or if booking_id was directly provided
+if ((!isset($_SESSION['booking_success']) && !isset($_GET['booking_id'])) || 
+    (!isset($_SESSION['booking_success']) && !isset($_SESSION['user_id']))) {
     header("Location: ../flights/search.php");
     exit();
 }
 
 // Get booking ID
-$booking_id = intval($_GET['booking_id']);
-
-// Clear session flag
-unset($_SESSION['booking_success']);
-
-// Get user ID
+$booking_id = intval($_GET['booking_id'] ?? $_SESSION['recent_booking_id'] ?? 0);
 $user_id = $_SESSION['user_id'] ?? 0;
 
-// Get booking details
+// Clear session flags
+if (isset($_SESSION['booking_success'])) {
+    unset($_SESSION['booking_success']);
+}
+
+// Double-check that the booking exists and belongs to this user
 $stmt = $conn->prepare("SELECT b.*, f.flight_number, f.airline, f.departure_city, f.arrival_city, 
                       f.departure_time, f.arrival_time 
                       FROM bookings b 
                       JOIN flights f ON b.flight_id = f.flight_id 
-                      WHERE b.booking_id = ?");
-$stmt->bind_param("i", $booking_id);
+                      WHERE b.booking_id = ? AND b.user_id = ?");
+$stmt->bind_param("ii", $booking_id, $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
-    header("Location: ../flights/search.php");
-    exit();
+    // Try to find the booking without user_id check (for admin use)
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
+        $stmt = $conn->prepare("SELECT b.*, f.flight_number, f.airline, f.departure_city, f.arrival_city, 
+                              f.departure_time, f.arrival_time 
+                              FROM bookings b 
+                              JOIN flights f ON b.flight_id = f.flight_id 
+                              WHERE b.booking_id = ?");
+        $stmt->bind_param("i", $booking_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            header("Location: ../flights/search.php");
+            exit();
+        }
+    } else {
+        header("Location: ../flights/search.php");
+        exit();
+    }
 }
 
 $booking = $result->fetch_assoc();
+
+// Debug info to check booking details
+$debug_info = "Booking ID: $booking_id, User ID: $user_id";
+error_log($debug_info);
 ?>
 
 <!DOCTYPE html>

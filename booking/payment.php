@@ -3,6 +3,8 @@ session_start();
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
+    // Store current page as redirect target after login
+    $_SESSION['redirect_after_login'] = 'booking/payment.php';
     header("Location: ../auth/login.php");
     exit();
 }
@@ -10,172 +12,263 @@ if (!isset($_SESSION['user_id'])) {
 // Include database connection
 require_once '../db/db_config.php';
 
-// Get booking ID
-$booking_id = isset($_GET['booking_id']) ? intval($_GET['booking_id']) : 0;
+$user_id = $_SESSION['user_id'];
 
-// Validate booking ID and ownership
-if ($booking_id <= 0) {
-    header("Location: ../user/bookings.php");
+// Initialize flight and booking variables with defaults to prevent undefined variable errors
+$booking = [
+    'booking_id' => 0,
+    'flight_id' => 0,
+    'flight_number' => 'N/A',
+    'airline' => 'N/A',
+    'departure_city' => 'N/A',
+    'arrival_city' => 'N/A',
+    'departure_time' => date('Y-m-d H:i:s'),
+    'arrival_time' => date('Y-m-d H:i:s', strtotime('+2 hours')),
+    'price' => 0,
+    'total_amount' => 0
+];
+$passenger_count = 1;
+$flight_id = 0;
+$passengers = 0;
+$total_price = 0;
+$booking_id = 0;
+
+// Check if booking data exists in session
+if (isset($_SESSION['booking_data'])) {
+    // Extract necessary data from session
+    $booking_data = $_SESSION['booking_data'];
+    $flight_id = $booking_data['flight_id'];
+    $passengers = $booking_data['passengers'];
+    $passenger_count = $passengers; // Set passenger_count from session data
+    $total_price = $booking_data['total_price'];
+    $booking_id = $booking_data['booking_id'] ?? 0; // Will be 0 for new bookings
+    
+    // Get flight details to populate the booking array
+    $stmt = $conn->prepare("SELECT * FROM flights WHERE flight_id = ?");
+    $stmt->bind_param("i", $flight_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $flight = $result->fetch_assoc();
+        
+        // Populate booking array with flight details
+        $booking['flight_id'] = $flight_id;
+        $booking['flight_number'] = $flight['flight_number'];
+        $booking['airline'] = $flight['airline'];
+        $booking['departure_city'] = $flight['departure_city'];
+        $booking['arrival_city'] = $flight['arrival_city'];
+        $booking['departure_time'] = $flight['departure_time'];
+        $booking['arrival_time'] = $flight['arrival_time'];
+        $booking['price'] = $flight['price'];
+        $booking['total_amount'] = $total_price;
+    }
+} 
+// Check if we have a booking_id parameter (for completing payment later)
+else if (isset($_GET['booking_id'])) {
+    $booking_id = intval($_GET['booking_id']);
+    
+    // Get booking details directly from database when booking_id is provided
+    if ($booking_id > 0) {
+        $stmt = $conn->prepare("SELECT b.*, 
+                              f.price, 
+                              (f.price * 0.85) as base_fare,
+                              (f.price * 0.15) as taxes_fees,
+                              f.flight_number, f.airline, f.departure_city, f.arrival_city, 
+                              f.departure_time, f.arrival_time 
+                              FROM bookings b 
+                              JOIN flights f ON b.flight_id = f.flight_id 
+                              WHERE b.booking_id = ? AND b.user_id = ?");
+        $stmt->bind_param("ii", $booking_id, $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            header("Location: ../user/bookings.php");
+            exit();
+        }
+        
+        $booking = $result->fetch_assoc();
+        
+        // Calculate payment details
+        $passengers = $booking['passengers'];
+        $price_per_passenger = $booking['price'];
+        $total_price = $booking['total_amount'];
+        $base_fare = $booking['base_fare'];
+        $taxes_fees = $booking['taxes_fees'];
+    } 
+    // For new bookings from session
+    else if (isset($_SESSION['booking_data'])) {
+        $booking_data = $_SESSION['booking_data'];
+        
+        // Get flight details
+        $flight_id = $booking_data['flight_id'];
+        $stmt = $conn->prepare("SELECT * FROM flights WHERE flight_id = ?");
+        $stmt->bind_param("i", $flight_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            header("Location: ../flights/search.php");
+            exit();
+        }
+        
+        $flight = $result->fetch_assoc();
+        
+        // Set booking variables using session data
+        $passengers = $booking_data['passengers'];
+        $base_fare = $booking_data['base_fare'];
+        $taxes_fees = $booking_data['taxes_fees'];
+        $price_per_passenger = $booking_data['price_per_passenger'];
+        $total_price = $booking_data['total_price'];
+    }
+} else {
+    // No booking data and no booking_id parameter
+    $_SESSION['error_message'] = "No booking information found.";
+    header("Location: ../flights/search.php");
     exit();
 }
 
-// Get booking information
-$booking_query = "SELECT b.*, f.flight_number, f.airline, f.departure_city, f.arrival_city, 
-                 f.departure_time, f.arrival_time, f.price 
-                 FROM bookings b 
-                 JOIN flights f ON b.flight_id = f.flight_id 
-                 WHERE b.booking_id = ? AND b.user_id = ?";
-$booking_stmt = $conn->prepare($booking_query);
-$booking_stmt->bind_param("ii", $booking_id, $_SESSION['user_id']);
-$booking_stmt->execute();
-$booking_result = $booking_stmt->get_result();
-
-if ($booking_result->num_rows === 0) {
-    header("Location: ../user/bookings.php");
-    exit();
-}
-
-$booking = $booking_result->fetch_assoc();
-
-// Add this line to provide a default passenger count if missing
-$passenger_count = isset($booking['passenger_count']) ? $booking['passenger_count'] : 1;
-
-// Check if booking is already paid
-if ($booking['payment_status'] === 'completed') {
-    header("Location: confirmation.php?booking_id=" . $booking_id);
-    exit();
-}
-
-// Check if booking is cancelled
-if ($booking['booking_status'] === 'cancelled') {
-    header("Location: ../user/bookings.php");
-    exit();
-}
+// Track payment errors
+$payment_error = '';
 
 // Process payment
-$payment_error = '';
-$payment_success = false;
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Validate payment information
-    $payment_method = $_POST['payment_method'] ?? '';
-    $card_number = $_POST['card_number'] ?? '';
+    // Get payment details from form
     $card_name = $_POST['card_name'] ?? '';
-    $expiry_date = $_POST['expiry_date'] ?? '';
-    $cvv = $_POST['cvv'] ?? '';
+    $card_number = $_POST['card_number'] ?? '';
+    $card_expiry = $_POST['card_expiry'] ?? '';
+    $card_cvv = $_POST['card_cvv'] ?? '';
+    $payment_method = $_POST['payment_method'] ?? 'credit_card';
     
-    // Simple validation
-    if (empty($payment_method) || empty($card_number) || empty($card_name) || empty($expiry_date) || empty($cvv)) {
-        $payment_error = "All payment fields are required";
+    // Basic validation
+    if (empty($card_name) || empty($card_number) || empty($card_expiry) || empty($card_cvv)) {
+        $payment_error = "All payment fields are required.";
     } else {
-        // In a real application, you would integrate with a payment gateway here
-        // For this example, we'll simulate a successful payment
-        
-        // Check if payment_method and payment_date columns exist in the bookings table
-        $payment_method_column_exists = false;
-        $payment_date_column_exists = false;
-        
-        $columns_result = $conn->query("SHOW COLUMNS FROM bookings LIKE 'payment_method'");
-        if ($columns_result && $columns_result->num_rows > 0) {
-            $payment_method_column_exists = true;
-        }
-        
-        $columns_result = $conn->query("SHOW COLUMNS FROM bookings LIKE 'payment_date'");
-        if ($columns_result && $columns_result->num_rows > 0) {
-            $payment_date_column_exists = true;
-        }
-        
         try {
-            // Start a transaction
+            // Start transaction
             $conn->begin_transaction();
             
-            // Insert booking record with the current user ID
-            $booking_date = date('Y-m-d H:i:s');
-            $booking_status = 'confirmed';  // Make sure to set to 'confirmed' after payment
-            $payment_status = 'completed';  // Mark payment as completed
+            // Check if payment_method column exists in bookings table
+            $column_check = $conn->query("SHOW COLUMNS FROM bookings LIKE 'payment_method'");
+            $payment_method_exists = $column_check->num_rows > 0;
             
-            $stmt = $conn->prepare("INSERT INTO bookings (user_id, flight_id, booking_date, passengers, total_amount, booking_status, payment_status, payment_method) 
-                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("iisidsss", $user_id, $flight_id, $booking_date, $passengers, $total_price, $booking_status, $payment_status, $payment_method);
-            $stmt->execute();
+            // Check if updated_at column exists in bookings table
+            $updated_at_check = $conn->query("SHOW COLUMNS FROM bookings LIKE 'updated_at'");
+            $updated_at_exists = $updated_at_check->num_rows > 0;
             
-            $booking_id = $conn->insert_id;
-            
-            // Add debug logging
-            error_log("Booking created successfully. Booking ID: {$booking_id}, User ID: {$user_id}, Flight ID: {$flight_id}");
-            
-            // Build the update query based on which columns exist
-            $update_fields = ["payment_status = 'completed'", "booking_status = 'confirmed'"];
-            $params = [];
-            $types = "";
-            
-            if ($payment_method_column_exists) {
-                $update_fields[] = "payment_method = ?";
-                $params[] = $payment_method;
-                $types .= "s";
-            }
-            
-            if ($payment_date_column_exists) {
-                $update_fields[] = "payment_date = NOW()";
-            }
-            
-            $update_query = "UPDATE bookings SET " . implode(", ", $update_fields) . " WHERE booking_id = ?";
-            $params[] = $booking_id;
-            $types .= "i";
-            
-            $update_stmt = $conn->prepare($update_query);
-            if (!empty($params)) {
-                $update_stmt->bind_param($types, ...$params);
-            }
-            $update_stmt->execute();
-            
-            // Create booking_history record if table exists
-            $check_history_table = $conn->query("SHOW TABLES LIKE 'booking_history'");
-            if ($check_history_table->num_rows > 0) {
-                $history_query = "INSERT INTO booking_history (booking_id, status, status_change, notes, updated_by) 
-                                 VALUES (?, 'confirmed', 'Payment completed', 'Payment processed via " . $payment_method . "', ?)";
-                $history_stmt = $conn->prepare($history_query);
-                $history_stmt->bind_param("ii", $booking_id, $_SESSION['user_id']);
-                $history_stmt->execute();
-            }
-            
-            // Create notification for admin (if notifications table exists)
-            $check_notifications = $conn->query("SHOW TABLES LIKE 'notifications'");
-            if ($check_notifications->num_rows > 0) {
-                $notification_query = "INSERT INTO notifications (user_id, title, message, type) 
-                                      VALUES (?, 'Payment Received', 'Payment received for booking BK-" . str_pad($booking_id, 6, '0', STR_PAD_LEFT) . "', 'payment')";
-                $admin_query = "SELECT user_id FROM users WHERE role = 'admin' LIMIT 1";
-                $admin_result = $conn->query($admin_query);
-                if ($admin_result->num_rows > 0) {
-                    $admin_id = $admin_result->fetch_assoc()['user_id'];
-                    $notification_stmt = $conn->prepare($notification_query);
-                    $notification_stmt->bind_param("i", $admin_id);
-                    $notification_stmt->execute();
+            // Check if this is a payment for an existing booking
+            if (isset($booking_id) && $booking_id > 0) {
+                // Update existing booking
+                if ($payment_method_exists && $updated_at_exists) {
+                    $stmt = $conn->prepare("UPDATE bookings SET payment_status = 'completed', 
+                                      booking_status = 'confirmed', 
+                                      payment_method = ?,
+                                      updated_at = NOW()
+                                      WHERE booking_id = ? AND user_id = ?");
+                    $stmt->bind_param("sii", $payment_method, $booking_id, $user_id);
+                } elseif ($payment_method_exists) {
+                    // If payment_method exists but updated_at doesn't
+                    $stmt = $conn->prepare("UPDATE bookings SET payment_status = 'completed', 
+                                      booking_status = 'confirmed', 
+                                      payment_method = ?
+                                      WHERE booking_id = ? AND user_id = ?");
+                    $stmt->bind_param("sii", $payment_method, $booking_id, $user_id);
+                } elseif ($updated_at_exists) {
+                    // If updated_at exists but payment_method doesn't
+                    $stmt = $conn->prepare("UPDATE bookings SET payment_status = 'completed', 
+                                      booking_status = 'confirmed',
+                                      updated_at = NOW() 
+                                      WHERE booking_id = ? AND user_id = ?");
+                    $stmt->bind_param("ii", $booking_id, $user_id);
+                } else {
+                    // If neither column exists
+                    $stmt = $conn->prepare("UPDATE bookings SET payment_status = 'completed', 
+                                      booking_status = 'confirmed' 
+                                      WHERE booking_id = ? AND user_id = ?");
+                    $stmt->bind_param("ii", $booking_id, $user_id);
                 }
                 
-                // Create notification for user
-                $user_notification = "INSERT INTO notifications (user_id, title, message, type) 
-                                     VALUES (?, 'Payment Confirmed', 'Your payment for booking BK-" . str_pad($booking_id, 6, '0', STR_PAD_LEFT) . " has been received.', 'payment')";
-                $user_stmt = $conn->prepare($user_notification);
-                $user_stmt->bind_param("i", $_SESSION['user_id']);
-                $user_stmt->execute();
-            }
-            
-            // Log the payment for admin
-            if (file_exists('../includes/admin_functions.php')) {
-                require_once '../includes/admin_functions.php';
-                if (function_exists('logAdminAction')) {
-                    logAdminAction('payment_received', $_SESSION['user_id'], "Payment received for booking #$booking_id via $payment_method");
+                $result = $stmt->execute();
+                
+                if (!$result) {
+                    throw new Exception("Failed to update booking status: " . $conn->error);
                 }
+                
+                // Get the existing booking ID for the confirmation
+                $_SESSION['recent_booking_id'] = $booking_id;
+                
+            } else {
+                // Insert new booking record - no need to use updated_at here since it's a new record
+                $booking_date = date('Y-m-d H:i:s');
+                $booking_status = 'confirmed';
+                $payment_status = 'completed';
+                
+                if ($payment_method_exists) {
+                    $stmt = $conn->prepare("INSERT INTO bookings (user_id, flight_id, booking_date, passengers, 
+                                      total_amount, booking_status, payment_status, payment_method) 
+                                      VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->bind_param("iisidsss", $user_id, $flight_id, $booking_date, $passengers, 
+                                  $total_price, $booking_status, $payment_status, $payment_method);
+                } else {
+                    $stmt = $conn->prepare("INSERT INTO bookings (user_id, flight_id, booking_date, passengers, 
+                                      total_amount, booking_status, payment_status) 
+                                      VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->bind_param("iisidss", $user_id, $flight_id, $booking_date, $passengers, 
+                                  $total_price, $booking_status, $payment_status);
+                }
+                
+                if (!$stmt->execute()) {
+                    throw new Exception("Failed to create booking: " . $stmt->error);
+                }
+                
+                $booking_id = $conn->insert_id;
+                
+                // Store passenger details if available
+                if (isset($_SESSION['booking_data']['passenger_data'])) {
+                    $passenger_data = $_SESSION['booking_data']['passenger_data'];
+                    
+                    // Check if passengers table exists
+                    $table_check = $conn->query("SHOW TABLES LIKE 'passengers'");
+                    
+                    if ($table_check->num_rows > 0) {
+                        // Check if nationality column exists in passengers table
+                        $nationality_exists = $conn->query("SHOW COLUMNS FROM passengers LIKE 'nationality'")->num_rows > 0;
+                        
+                        foreach ($passenger_data as $passenger) {
+                            $title = $passenger['title'] ?? '';
+                            $first_name = $passenger['first_name'] ?? '';
+                            $last_name = $passenger['last_name'] ?? '';
+                            $dob = $passenger['date_of_birth'] ?? null;
+                            $passport = $passenger['passport_number'] ?? '';
+                            
+                            if ($nationality_exists) {
+                                // If nationality column exists, include it in the query
+                                $nationality = $passenger['nationality'] ?? '';
+                                $stmt = $conn->prepare("INSERT INTO passengers 
+                                                     (booking_id, title, first_name, last_name, date_of_birth, passport_number, nationality) 
+                                                     VALUES (?, ?, ?, ?, ?, ?, ?)");
+                                $stmt->bind_param("issssss", $booking_id, $title, $first_name, $last_name, $dob, $passport, $nationality);
+                            } else {
+                                // If nationality column doesn't exist, exclude it
+                                $stmt = $conn->prepare("INSERT INTO passengers 
+                                                     (booking_id, title, first_name, last_name, date_of_birth, passport_number) 
+                                                     VALUES (?, ?, ?, ?, ?, ?)");
+                                $stmt->bind_param("isssss", $booking_id, $title, $first_name, $last_name, $dob, $passport);
+                            }
+                            $stmt->execute();
+                        }
+                    }
+                }
+                
+                // Store the booking ID for the confirmation page
+                $_SESSION['recent_booking_id'] = $booking_id;
             }
             
             // Commit transaction
             $conn->commit();
             
-            // Set success flag
-            $payment_success = true;
-            
-            // Set success message to be displayed on confirmation page
+            // Set success message
             $_SESSION['booking_success'] = true;
             $_SESSION['recent_booking_id'] = $booking_id;
             
@@ -185,17 +278,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Redirect to confirmation page
             header("Location: confirmation.php?booking_id=" . $booking_id);
             exit();
+            
         } catch (Exception $e) {
             // Rollback transaction on error
             $conn->rollback();
             
             // Log the error
-            error_log("Error processing booking: " . $e->getMessage());
+            error_log("Payment processing error: " . $e->getMessage());
             
+            // Show error to user
             $payment_error = "Error processing payment: " . $e->getMessage();
         }
     }
 }
+
+// Get flight details from the database - make sure to include the price calculations
+$stmt = $conn->prepare("SELECT f.*, 
+                      (f.price * 0.85) as base_fare,
+                      (f.price * 0.15) as taxes_fees,
+                      (f.total_seats - COALESCE((SELECT SUM(b.passengers) FROM bookings b 
+                       WHERE b.flight_id = f.flight_id AND b.booking_status != 'cancelled'), 0)) AS available_seats
+                      FROM flights f 
+                      WHERE f.flight_id = ?");
+$stmt->bind_param("i", $flight_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows > 0) {
+    $flight = $result->fetch_assoc();
+    
+    // After getting the booking data, properly initialize the price variables
+    if ($booking) {
+        $base_fare = $booking['base_fare'] ?? ($booking['price'] * 0.85);
+        $taxes_fees = $booking['taxes_fees'] ?? ($booking['price'] * 0.15);
+        $price_per_passenger = $booking['price'];
+        $total_amount = $booking['total_amount'];
+        
+        // If these values are still not set (perhaps booking doesn't have price info)
+        if (!isset($base_fare) || !$base_fare) {
+            $flight_price = $flight['price'] ?? 0;
+            $base_fare = $flight_price * 0.85;
+            $taxes_fees = $flight_price * 0.15;
+            $price_per_passenger = $flight_price;
+        }
+    }
+}
+
+// Format flight times
+$departure_time = date('h:i A', strtotime($booking['departure_time']));
+$arrival_time = date('h:i A', strtotime($booking['arrival_time']));
+$departure_date = date('l, F j, Y', strtotime($booking['departure_time']));
+$arrival_date = date('l, F j, Y', strtotime($booking['arrival_time']));
+
+// Calculate flight duration
+$dep = new DateTime($booking['departure_time']);
+$arr = new DateTime($booking['arrival_time']);
+$interval = $dep->diff($arr);
+$duration = sprintf('%dh %dm', $interval->h + ($interval->days * 24), $interval->i);
 ?>
 
 <!DOCTYPE html>
@@ -317,12 +456,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label for="expiry_date" class="form-label">Expiry Date</label>
-                                        <input type="text" class="form-control" id="expiry_date" name="expiry_date" placeholder="MM/YY" maxlength="5">
+                                        <input type="text" class="form-control" id="expiry_date" name="card_expiry" placeholder="MM/YY" maxlength="5">
                                     </div>
                                     <div class="col-md-6">
                                         <label for="cvv" class="form-label">CVV</label>
                                         <div class="input-group">
-                                            <input type="password" class="form-control" id="cvv" name="cvv" placeholder="123" maxlength="4">
+                                            <input type="password" class="form-control" id="cvv" name="card_cvv" placeholder="123" maxlength="4">
                                             <span class="input-group-text">
                                                 <i class="fas fa-question-circle" data-bs-toggle="tooltip" data-bs-placement="top" title="3 or 4 digit security code on the back of your card"></i>
                                             </span>
@@ -448,6 +587,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div>$<?php echo number_format($booking['total_amount'], 2); ?></div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Display payment summary -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0">Payment Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-borderless">
+                            <tbody>
+                                <tr>
+                                    <td>Base Fare (per passenger)</td>
+                                    <td class="text-end">$<?php echo number_format($base_fare, 2); ?></td>
+                                </tr>
+                                <tr>
+                                    <td>Taxes & Fees (per passenger)</td>
+                                    <td class="text-end">$<?php echo number_format($taxes_fees, 2); ?></td>
+                                </tr>
+                                <tr>
+                                    <td>Price per passenger</td>
+                                    <td class="text-end">$<?php echo number_format($price_per_passenger, 2); ?></td>
+                                </tr>
+                                <tr>
+                                    <td>Passengers</td>
+                                    <td class="text-end"><?php echo $passengers; ?></td>
+                                </tr>
+                                <tr class="border-top fw-bold">
+                                    <td>Total amount to pay</td>
+                                    <td class="text-end">$<?php echo number_format($total_price, 2); ?></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

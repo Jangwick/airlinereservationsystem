@@ -68,16 +68,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && (isset($_GET['departure_city']) || i
                 }
             } else {
                 // Build the search query with improved city matching and date handling
-                $query = "SELECT f.* 
-                          FROM flights f 
-                          WHERE 
-                          (LOWER(f.departure_city) = LOWER(?) OR 
-                           f.departure_city LIKE CONCAT('%', ?, '%') OR
-                           SOUNDEX(f.departure_city) = SOUNDEX(?))
-                          AND 
-                          (LOWER(f.arrival_city) = LOWER(?) OR 
-                           f.arrival_city LIKE CONCAT('%', ?, '%') OR
-                           SOUNDEX(f.arrival_city) = SOUNDEX(?))";
+                $query = "SELECT f.*, 
+                         (CASE WHEN f.price > 0 THEN f.price * 0.85 ELSE 200 END) as base_fare,
+                         (CASE WHEN f.price > 0 THEN f.price * 0.15 ELSE 30 END) as taxes_fees,
+                         (f.total_seats - COALESCE((SELECT SUM(b.passengers) FROM bookings b WHERE b.flight_id = f.flight_id AND b.booking_status != 'cancelled'), 0)) AS available_seats 
+                         FROM flights f 
+                         WHERE f.departure_city LIKE ? AND f.arrival_city LIKE ?";
                 
                 // Adjust total_seats condition to use correct field and logic
                 $query .= " AND (f.total_seats - COALESCE((SELECT SUM(b.passengers) FROM bookings b WHERE b.flight_id = f.flight_id AND b.booking_status != 'cancelled'), 0)) >= ?";
@@ -102,26 +98,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && (isset($_GET['departure_city']) || i
                 // Prepare and execute the query
                 $stmt = $conn->prepare($query);
                 
+                // Make sure all flight-related queries include the calculated fields
                 if (!empty($departure_date)) {
-                    // Fix: Change type string from "ssssssis" to "ssssssis" + "s" to match 9 parameters
-                    $stmt->bind_param("ssssssis" . "s", 
+                    // Fix: Update the type string to match exactly 5 parameters (ssiss)
+                    $stmt->bind_param("ssiss", 
                         $departure_city,
-                        $departure_city,
-                        $departure_city,
-                        $arrival_city,
-                        $arrival_city,
                         $arrival_city,
                         $passengers,
                         $departure_date,
                         $departure_date
                     );
                 } else {
-                    $stmt->bind_param("sssssi",
+                    // If no date filtering, we only need 3 parameters
+                    $stmt->bind_param("ssi", 
                         $departure_city,
-                        $departure_city,
-                        $departure_city,
-                        $arrival_city,
-                        $arrival_city,
                         $arrival_city,
                         $passengers
                     );
@@ -533,17 +523,12 @@ function getCityImage($city, $cityImages, $baseUrl) {
                                             
                                             <div class="col-md-3 text-center text-md-end">
                                                 <!-- Price and Booking -->
-                                                <div class="h4 text-primary mb-2">$<?php echo number_format($flight['price'], 2); ?></div>
-                                                <div class="text-muted small mb-3">per passenger</div>
+                                                <div class="h4 text-primary mb-2">$<?php echo number_format($flight['base_fare'] ?? ($flight['price'] * 0.85), 2); ?></div>
+                                                <div class="text-muted small mb-2">base fare per passenger</div>
+                                                <div class="text-muted small mb-3">Total: $<?php echo number_format($flight['price'], 2); ?></div>
                                                 
                                                 <a href="../booking/select_flight.php?flight_id=<?php echo $flight['flight_id']; ?>&passengers=<?php echo $passengers; ?>" 
-                                                   class="btn btn-primary w-100">
-                                                    <i class="fas fa-check-circle me-2"></i>Select Flight
-                                                </a>
-                                                <a href="../flights/flight_details.php?id=<?php echo $flight['flight_id']; ?>" 
-                                                   class="btn btn-link text-decoration-none w-100 mt-2">
-                                                    Flight Details
-                                                </a>
+                                                   class="btn btn-primary btn-sm w-100">Select Flight</a>
                                             </div>
                                         </div>
                                         

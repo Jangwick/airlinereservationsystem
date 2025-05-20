@@ -69,41 +69,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit();
     }
 
-    // Calculate total price based on flight details and number of passengers
-    $stmt = $conn->prepare("SELECT price, airline, flight_number, departure_city, arrival_city, departure_time, arrival_time FROM flights WHERE flight_id = ?");
+    // Get flight details to calculate proper pricing
+    $stmt = $conn->prepare("SELECT f.*, 
+                          (f.price * 0.85) as base_fare,
+                          (f.price * 0.15) as taxes_fees
+                          FROM flights f WHERE f.flight_id = ?");
     $stmt->bind_param("i", $flight_id);
     $stmt->execute();
-    $flight_result = $stmt->get_result();
+    $result = $stmt->get_result();
 
-    if ($flight_result->num_rows === 0) {
-        $_SESSION['booking_status'] = [
-            'type' => 'danger',
-            'message' => 'Flight not found'
-        ];
-        header("Location: booking.php");
+    if ($result->num_rows === 0) {
+        $_SESSION['error_message'] = "Selected flight not found.";
+        header("Location: ../flights/search.php");
         exit();
     }
 
-    $flight = $flight_result->fetch_assoc();
+    $flight = $result->fetch_assoc();
 
-    // Change this line:
-    $base_fare = $flight['base_price'] * $num_passengers;
+    // Calculate accurate pricing
+    $price_per_passenger = $flight['price'];
+    $base_fare = $flight['base_fare'];
+    $taxes_fees = $flight['taxes_fees'];
+    $total_price = $price_per_passenger * $passengers;
 
-    // To this:
-    $base_fare = $flight['price'] * $num_passengers;
-
-    // Calculate total amount (you can add more complex pricing logic here)
-    $total_amount = $base_fare; // + additional fees, taxes, etc.
-
-    // Begin transaction
+    // Start a transaction to ensure data integrity
     $conn->begin_transaction();
 
     try {
-        // Insert booking into database
-        $stmt = $conn->prepare("INSERT INTO bookings (user_id, flight_id, booking_date, total_amount, booking_status, payment_status) VALUES (?, ?, NOW(), ?, 'pending', 'pending')");
-        $stmt->bind_param("iid", $user_id, $flight_id, $total_amount);
+        // Insert booking record with proper fare breakdown
+        $stmt = $conn->prepare("INSERT INTO bookings (user_id, flight_id, booking_date, booking_status, 
+                             payment_status, passengers, price_per_passenger, base_fare, taxes_fees, total_amount) 
+                             VALUES (?, ?, NOW(), 'pending', 'pending', ?, ?, ?, ?, ?)");
+        $stmt->bind_param("iiidddd", 
+            $user_id, 
+            $flight_id,
+            $passengers,
+            $price_per_passenger,
+            $base_fare,  // Add base_fare to the booking record
+            $taxes_fees, // Add taxes_fees to the booking record
+            $total_price
+        );
         $stmt->execute();
-        $booking_id = $stmt->insert_id;
+        $booking_id = $conn->insert_id;
 
         // Insert passengers into database
         $stmt = $conn->prepare("INSERT INTO passengers (booking_id, first_name, last_name, email, phone, special_requests) VALUES (?, ?, ?, ?, ?, ?)");
@@ -116,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $stmt->execute();
         }
 
-        // Commit transaction
+        // Commit transaction if all operations succeed
         $conn->commit();
 
         $_SESSION['booking_status'] = [
@@ -131,13 +138,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         header("Location: confirmation.php?id=" . $booking_id);
         exit();
     } catch (Exception $e) {
-        // Rollback transaction on error
+        // Roll back transaction on error
         $conn->rollback();
-
-        $_SESSION['booking_status'] = [
-            'type' => 'danger',
-            'message' => 'Error processing booking: ' . $e->getMessage()
-        ];
+        $_SESSION['error_message'] = "An error occurred: " . $e->getMessage();
     }
 }
 

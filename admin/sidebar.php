@@ -58,6 +58,27 @@ $baseUrl = getBaseUrl();
             </li>
         </ul>
         
+        <!-- Flight Management Section -->
+        <div class="position-sticky">
+            <ul class="nav flex-column">
+                <!-- ...existing flight management items... -->
+                
+                <!-- Add these new items in the Flight Management section -->
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $current_page == 'fix_flight_prices.php' ? 'active' : ''; ?>" href="fix_flight_prices.php">
+                        <i class="fas fa-dollar-sign me-2"></i> Fix Flight Prices
+                    </a>
+                </li>
+                
+                <!-- Add Database Utilities section -->
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $current_page == 'database_utilities.php' ? 'active' : ''; ?>" href="../db/update_bookings_table.php">
+                        <i class="fas fa-database me-2"></i> Database Utilities
+                    </a>
+                </li>
+            </ul>
+        </div>
+        
         <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
             <span>System</span>
         </h6>

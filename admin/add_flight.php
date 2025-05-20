@@ -31,7 +31,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $economy_seats = $_POST['economy_seats'] ?? 0;
         $business_seats = $_POST['business_seats'] ?? 0;
         $first_class_seats = $_POST['first_class_seats'] ?? 0;
-        $base_price = $_POST['base_price'];
+        $price = $_POST['price'];
         
         // Validate data
         if (strtotime($departure_time) >= strtotime($arrival_time)) {
@@ -52,9 +52,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             throw new Exception("Flight number already exists for this airline.");
         }
         
+        // Validate price - ensure it's not null
+        $price = isset($_POST['price']) ? floatval($_POST['price']) : 0;
+        if ($price <= 0) {
+            $price = 100.00; // Set a default price if empty or invalid
+            $error_message = "Price was invalid. A default price of $100 has been set.";
+        }
+        
         // Insert into database
-        $stmt = $conn->prepare("INSERT INTO flights (airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_time, arrival_time, status, aircraft, total_seats, available_seats, economy_seats, business_seats, first_class_seats, base_price, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
-        $stmt->bind_param("ssssssssssiiiidi", $airline, $flight_number, $departure_city, $arrival_city, $departure_airport, $arrival_airport, $departure_time, $arrival_time, $status, $aircraft, $total_seats, $total_seats, $economy_seats, $business_seats, $first_class_seats, $base_price);
+        $stmt = $conn->prepare("INSERT INTO flights (flight_number, airline, departure_city, arrival_city, 
+                                  departure_time, arrival_time, price, status, total_seats, aircraft, created_at, updated_at) 
+                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt->bind_param("ssssssdsss", 
+            $flight_number, 
+            $airline, 
+            $departure_city, 
+            $arrival_city, 
+            $departure_time, 
+            $arrival_time, 
+            $price,           // Just store the total price
+            $status, 
+            $total_seats, 
+            $aircraft
+        );
         $stmt->execute();
         
         if ($stmt->affected_rows > 0) {
@@ -299,8 +319,8 @@ if (empty($aircraft_types)) {
                                         </div>
                                         
                                         <div class="col-md-6">
-                                            <label for="base_price" class="form-label">Base Price ($) <span class="text-danger">*</span></label>
-                                            <input type="number" class="form-control" id="base_price" name="base_price" min="0.01" step="0.01" required>
+                                            <label for="price" class="form-label">Total Price per Passenger ($) <span class="text-danger">*</span></label>
+                                            <input type="number" class="form-control" id="price" name="price" min="0.01" step="0.01" required>
                                         </div>
                                     </div>
                                 </div>

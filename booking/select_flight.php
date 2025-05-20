@@ -17,12 +17,14 @@ $passengers = isset($_GET['passengers']) ? intval($_GET['passengers']) : 1;
 if ($passengers < 1) $passengers = 1;
 if ($passengers > 9) $passengers = 9;
 
-// Get flight details
+// Get flight details - FIXED query to include base_fare and taxes_fees calculation
 $stmt = $conn->prepare("SELECT f.*, 
-                        (f.total_seats - COALESCE((SELECT SUM(b.passengers) FROM bookings b 
+                       (f.price * 0.85) as base_fare,
+                       (f.price * 0.15) as taxes_fees,
+                       (f.total_seats - COALESCE((SELECT SUM(b.passengers) FROM bookings b 
                          WHERE b.flight_id = f.flight_id AND b.booking_status != 'cancelled'), 0)) AS available_seats 
-                        FROM flights f 
-                        WHERE f.flight_id = ?");
+                       FROM flights f 
+                       WHERE f.flight_id = ?");
 $stmt->bind_param("i", $flight_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -50,9 +52,11 @@ if ($flight['available_seats'] < $passengers) {
     exit();
 }
 
-// Calculate total base price
-$base_price = $flight['price'];
-$total_price = $base_price * $passengers;
+// Calculate total prices correctly
+$base_fare = $flight['base_fare'];
+$taxes_fees = $flight['taxes_fees'];
+$price_per_passenger = $flight['price'];
+$total_price = $price_per_passenger * $passengers;
 
 // Initialize passenger data for form
 $passenger_data = [];
@@ -99,7 +103,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['continue_booking'])) 
             'flight_id' => $flight_id,
             'passengers' => $passengers,
             'passenger_data' => $passenger_data,
-            'base_price' => $base_price,
+            'base_fare' => $base_fare,
+            'taxes_fees' => $taxes_fees,
+            'price_per_passenger' => $price_per_passenger,
             'total_price' => $total_price,
             'selected_at' => date('Y-m-d H:i:s')
         ];
@@ -388,66 +394,86 @@ $duration = sprintf('%dh %dm', $interval->h + ($interval->days * 24), $interval-
                         <h5 class="mb-0">Price Summary</h5>
                     </div>
                     <div class="card-body">
+                        <div class="d-flex justify-content-between mb-3">
+                            <div>
+                                <h3 class="text-primary mb-0">$<?php echo number_format($base_fare, 2); ?></h3>
+                                <div class="text-muted small">base fare per passenger</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="badge bg-<?php echo isset($flight['status']) ? getStatusClass($flight['status']) : 'success'; ?> mb-1">
+                                    <?php echo isset($flight['status']) ? ucfirst($flight['status']) : 'Scheduled'; ?>
+                                </div>
+                                <div class="small">Flight <?php echo htmlspecialchars($flight['flight_number']); ?></div>
+                            </div>
+                        </div>
+
+                        <hr class="hr-dashed">
+
                         <div class="d-flex justify-content-between mb-2">
                             <span>Base Fare (per passenger)</span>
-                            <span>$<?php echo number_format($base_price, 2); ?></span>
+                            <span>$<?php echo number_format($base_fare, 2); ?></span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
+                            <span>Taxes & Fees (per passenger)</span>
+                            <span>$<?php echo number_format($taxes_fees, 2); ?></span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Total Price (per passenger)</span>
+                            <span>$<?php echo number_format($price_per_passenger, 2); ?></span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                        <div class="d-flex justify-content-between mb-2">ngers; ?></span>
                             <span>Passengers</span>
                             <span><?php echo $passengers; ?></span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Taxes & Fees</span>
-                            <span>Included</span>
-                        </div>
+                        </div> class="d-flex justify-content-between fw-bold">
                         <hr>
-                        <div class="d-flex justify-content-between fw-bold">
+                        <div class="d-flex justify-content-between fw-bold">number_format($total_price, 2); ?></span>
                             <span>Total</span>
                             <span>$<?php echo number_format($total_price, 2); ?></span>
                         </div>
                     </div>
-                </div>
-
-                <!-- Flight Information -->
-                <div class="card shadow-sm border-0 mb-4">
+                </div>                <!-- Flight Information -->
+border-0 mb-4">
+                <!-- Flight Information -->>
+                <div class="card shadow-sm border-0 mb-4"></h5>
                     <div class="card-header bg-white py-3">
-                        <h5 class="mb-0">Flight Information</h5>
+                        <h5 class="mb-0">Flight Information</h5>lass="card-body">
                     </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between mb-2">
+                    <div class="card-body">flex justify-content-between mb-2">
+                        <div class="mb-3">>
+                            <div class="d-flex justify-content-between mb-2">ars($flight['flight_number']); ?></span>
                                 <span class="text-muted">Flight Number:</span>
-                                <span class="fw-bold"><?php echo htmlspecialchars($flight['flight_number']); ?></span>
+                                <span class="fw-bold"><?php echo htmlspecialchars($flight['flight_number']); ?></span>lass="d-flex justify-content-between mb-2">
                             </div>
-                            <div class="d-flex justify-content-between mb-2">
+                            <div class="d-flex justify-content-between mb-2">['aircraft'] ?? 'Standard Aircraft'); ?></span>
                                 <span class="text-muted">Aircraft:</span>
-                                <span><?php echo htmlspecialchars($flight['aircraft'] ?? 'Standard Aircraft'); ?></span>
+                                <span><?php echo htmlspecialchars($flight['aircraft'] ?? 'Standard Aircraft'); ?></span>lass="d-flex justify-content-between mb-2">
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Duration:</span>
-                                <span><?php echo $duration; ?></span>
+                                <span><?php echo $duration; ?></span>lass="d-flex justify-content-between mb-2">
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Class:</span>
                                 <span>Economy</span>
-                            </div>
-                        </div>
-                        <div class="alert alert-info mb-0">
+                            </div>lass="alert alert-info mb-0">
+                        </div>-2"></i>
+                        <div class="alert alert-info mb-0"> + 7kg carry-on
                             <i class="fas fa-info-circle me-2"></i>
                             Baggage allowance: 20kg checked baggage + 7kg carry-on
                         </div>
                     </div>
-                </div>
-
+                </div>                <!-- Need Help Box -->
+w-sm border-0">
                 <!-- Need Help Box -->
-                <div class="card shadow-sm border-0">
-                    <div class="card-body">
+                <div class="card shadow-sm border-0">a-headset me-2"></i>Need Help?</h5>
+                    <div class="card-body">r need assistance with your booking, please contact our support team.</p>
                         <h5><i class="fas fa-headset me-2"></i>Need Help?</h5>
-                        <p class="text-muted mb-3">If you have any questions or need assistance with your booking, please contact our support team.</p>
+                        <p class="text-muted mb-3">If you have any questions or need assistance with your booking, please contact our support team.</p>fa-phone-alt me-2 text-primary"></i>
                         <div class="mb-2">
                             <i class="fas fa-phone-alt me-2 text-primary"></i>
                             <span>+63 (2) 8123 4567</span>
-                        </div>
+                        </div>i class="fas fa-envelope me-2 text-primary"></i>
                         <div>
                             <i class="fas fa-envelope me-2 text-primary"></i>
                             <span>support@skywayairlines.com</span>
@@ -456,12 +482,11 @@ $duration = sprintf('%dh %dm', $interval->h + ($interval->days * 24), $interval-
                 </div>
             </div>
         </div>
-    </div>
-
+    </div>    <!-- Footer -->
+../includes/footer.php'; ?>
     <!-- Footer -->
-    <?php include '../includes/footer.php'; ?>
-
+    <?php include '../includes/footer.php'; ?>    <!-- Bootstrap JS -->
+cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+</body></html>

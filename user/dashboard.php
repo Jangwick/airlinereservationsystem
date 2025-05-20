@@ -19,19 +19,56 @@ $stmt->execute();
 $result = $stmt->get_result();
 $user = $result->fetch_assoc();
 
-// Get upcoming bookings (limit to 5)
+// Get upcoming bookings (limit to 5) - Simplified query to ensure it works
 $stmt = $conn->prepare("SELECT b.*, f.flight_number, f.airline, f.departure_city, f.arrival_city, 
-                     f.departure_time, f.arrival_time 
+                     f.departure_time, f.arrival_time, f.status as flight_status
                      FROM bookings b 
                      JOIN flights f ON b.flight_id = f.flight_id 
-                     WHERE b.user_id = ? AND b.booking_status != 'cancelled' AND f.departure_time > NOW() 
+                     WHERE b.user_id = ? AND b.booking_status != 'cancelled' 
+                     AND f.departure_time > NOW() 
                      ORDER BY f.departure_time ASC LIMIT 5");
+
 $stmt->bind_param("i", $user_id);
+error_log("DEBUG: Dashboard - Looking for upcoming bookings for User ID: {$user_id}");
 $stmt->execute();
 $upcoming_result = $stmt->get_result();
 $upcoming_bookings = [];
+
+// Add debug information about how many results were found
+error_log("DEBUG: Dashboard - Found " . $upcoming_result->num_rows . " upcoming bookings");
+
 while ($booking = $upcoming_result->fetch_assoc()) {
+    // Add debug information about each booking
+    error_log("DEBUG: Dashboard - Found booking ID: " . $booking['booking_id'] . 
+             ", Flight: " . $booking['flight_number'] . 
+             ", Departure: " . $booking['departure_time']);
+    
+    // Calculate days until flight
+    $now = new DateTime();
+    $departure = new DateTime($booking['departure_time']);
+    $days_until = $departure->diff($now)->days;
+    
+    // Add computed properties
+    $booking['can_check_in'] = ($days_until <= 2 && $now < $departure);
+    $booking['is_checked_in'] = isset($booking['check_in_status']) && $booking['check_in_status'] == 'completed';
+    $booking['days_until_flight'] = $days_until;
+    $booking['passenger_count'] = $booking['passengers'] ?? 1; 
+    $booking['flight_status_label'] = getFlightStatusLabel($booking['flight_status'] ?? 'scheduled');
+    
     $upcoming_bookings[] = $booking;
+}
+
+// Helper function to get formatted flight status
+function getFlightStatusLabel($status) {
+    switch ($status) {
+        case 'scheduled': return ['class' => 'success', 'text' => 'On Time'];
+        case 'delayed': return ['class' => 'warning', 'text' => 'Delayed'];
+        case 'boarding': return ['class' => 'info', 'text' => 'Boarding'];
+        case 'departed': return ['class' => 'primary', 'text' => 'Departed'];
+        case 'arrived': return ['class' => 'secondary', 'text' => 'Arrived'];
+        case 'cancelled': return ['class' => 'danger', 'text' => 'Cancelled'];
+        default: return ['class' => 'success', 'text' => 'On Time'];
+    }
 }
 
 // Count total bookings
@@ -192,10 +229,16 @@ try {
                                             <div class="col-md-2 text-center mb-2 mb-md-0">
                                                 <div class="fw-bold text-primary"><?php echo date('M d', strtotime($booking['departure_time'])); ?></div>
                                                 <div class="small"><?php echo date('Y', strtotime($booking['departure_time'])); ?></div>
+                                                <?php if ($booking['flight_status']): ?>
+                                                    <span class="badge bg-<?php echo $booking['flight_status_label']['class']; ?> mt-1">
+                                                        <?php echo $booking['flight_status_label']['text']; ?>
+                                                    </span>
+                                                <?php endif; ?>
                                             </div>
                                             <div class="col-md-4 mb-2 mb-md-0">
                                                 <div class="fw-bold"><?php echo htmlspecialchars($booking['flight_number']); ?></div>
                                                 <div class="small text-muted"><?php echo htmlspecialchars($booking['airline']); ?></div>
+                                                <?php /* Remove terminal/gate display since these columns don't exist */ ?>
                                             </div>
                                             <div class="col-md-4 mb-2 mb-md-0">
                                                 <div class="d-flex align-items-center">
@@ -206,8 +249,18 @@ try {
                                                 <div class="small text-muted">
                                                     <?php echo date('h:i A', strtotime($booking['departure_time'])); ?> - <?php echo date('h:i A', strtotime($booking['arrival_time'])); ?>
                                                 </div>
+                                                <?php if ($booking['passenger_count'] > 1): ?>
+                                                    <div class="small text-muted"><?php echo $booking['passenger_count']; ?> passengers</div>
+                                                <?php endif; ?>
                                             </div>
                                             <div class="col-md-2 text-md-end">
+                                                <?php if ($booking['can_check_in'] && !$booking['is_checked_in']): ?>
+                                                    <a href="../booking/check-in.php?booking_id=<?php echo $booking['booking_id']; ?>" class="btn btn-sm btn-success mb-1">
+                                                        <i class="fas fa-check-circle me-1"></i> Check-in
+                                                    </a>
+                                                <?php elseif ($booking['is_checked_in']): ?>
+                                                    <span class="badge bg-success mb-1 d-block"><i class="fas fa-check me-1"></i> Checked In</span>
+                                                <?php endif; ?>
                                                 <a href="booking_details.php?id=<?php echo $booking['booking_id']; ?>" class="btn btn-sm btn-primary">
                                                     View Details
                                                 </a>
@@ -322,19 +375,19 @@ try {
     <style>
     .avatar-circle {
         width: 80px;
-        height: 80px;
-        background-color: #3b71ca;
+        height: 80px;        background-color: #3b71ca;
+        background-color: #3b71ca;%;
         border-radius: 50%;
-        display: flex;
-        justify-content: center;
+        display: flex;    justify-content: center;
+        justify-content: center;gn-items: center;
         align-items: center;
     }
     
     .initials {
         font-size: 32px;
-        color: white;
+        color: white;old;
         font-weight: bold;
     }
-    </style>
-</body>
+    </style>y>
+</body>ml>
 </html>

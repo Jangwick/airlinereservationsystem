@@ -12,6 +12,9 @@ require_once '../db/db_config.php';
 
 $user_id = $_SESSION['user_id'];
 
+// Log the current user ID to debug the issue
+error_log("DEBUG: Viewing bookings for User ID: {$user_id}");
+
 // Get status parameter for filtering
 $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 
@@ -30,6 +33,9 @@ if (!empty($status_filter)) {
 // Order by departure time (newest first)
 $query .= " ORDER BY f.departure_time DESC";
 
+// Debug output
+error_log("DEBUG: Bookings Query: " . $query . " with user_id: " . $user_id);
+
 // Prepare and execute the statement
 $stmt = $conn->prepare($query);
 
@@ -42,6 +48,10 @@ if (!empty($status_filter)) {
 $stmt->execute();
 $result = $stmt->get_result();
 
+// Check if any bookings were found
+$bookings_found = $result->num_rows;
+error_log("DEBUG: Number of bookings found: " . $bookings_found);
+
 // Group bookings by status for easier display
 $bookings = [
     'upcoming' => [],
@@ -53,6 +63,11 @@ $now = new DateTime();
 
 while ($booking = $result->fetch_assoc()) {
     $departure_time = new DateTime($booking['departure_time']);
+    
+    // Show all debugging data
+    error_log("DEBUG: Processing booking ID: " . $booking['booking_id'] . 
+              ", Status: " . $booking['booking_status'] . 
+              ", Departure: " . $booking['departure_time']);
     
     // Categorize bookings
     if ($booking['booking_status'] == 'cancelled') {
