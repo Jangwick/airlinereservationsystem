@@ -1,0 +1,111 @@
+# Database configuration
+db/db_config.php
+db/config.php
+db/connection.php
+.env
+
+# Vendor directory
+/vendor/
+
+# Logs
+*.log
+logs/
+error_log
+php_errors.log
+
+# User uploaded files
+uploads/**
+!uploads/.htaccess
+!uploads/index.html
+
+# Cache files
+*.cache
+cache/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Configuration and environment
+config.local.php
+.env.local
+.env.*.local
+
+# Editor and IDE files
+.idea/
+.vscode/
+*.sublime-*
+*.swp
+*.swo
+nbproject/
+.DS_Store
+Thumbs.db
+
+# Composer
+composer.phar
+
+# Session files
+/sessions/
+
+# Build artifacts
+/build/
+/dist/
+
+# Dependencies that should be installed via Composer
+/vendor/
+
+# Generated documentation
+/docs/
+
+# PHPUnit
+/phpunit.xml
+.phpunit.result.cache
+
+# Node modules (if using any JS dependencies)
+/node_modules/
+package-lock.json
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# WordPress specific (if integrated with WP)
+wp-config.php
+wp-content/advanced-cache.php
+wp-content/backup-db/
+wp-content/backups/
+wp-content/blogs.dir/
+wp-content/cache/
+wp-content/upgrade/
+wp-content/uploads/
+wp-content/wp-cache-config.php
+
+# Security files
+.htpasswd
+.htaccess.sample
+
+# Sensitive information files
+*.pem
+*.pub
+*.key
+*.p12
+*.pfx
+*.p7b
+*.cer
+*.crt
+
+# Test files
+test.php
+testing/
+tests/bootstrap.php
+
+# Payment gateway test files
+stripe-*.php
+paypal-*.php
