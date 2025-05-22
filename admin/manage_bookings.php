@@ -9,6 +9,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 
 // Include database connection
 require_once '../db/db_config.php';
+// Include currency helper
+require_once '../includes/currency_helper.php';
 
 // Handle status messages
 $status_message = '';
@@ -174,6 +176,9 @@ $failed_bookings = $conn->query($query_failed)->fetch_assoc()['count'];
 // Total revenue (sum of completed payments)
 $query_revenue = "SELECT SUM(total_amount) as revenue FROM bookings WHERE payment_status = 'completed'";
 $total_revenue = $conn->query($query_revenue)->fetch_assoc()['revenue'] ?? 0;
+
+// Get currency symbol
+$currency_symbol = getCurrencySymbol($conn);
 
 // Get distinct airlines for filter dropdown
 $airlines_query = "SELECT DISTINCT airline FROM flights ORDER BY airline";
@@ -433,7 +438,7 @@ if ($columns_result && $columns_result->num_rows > 0) {
                                 <hr>
                                 <div class="text-center">
                                     <div class="h4">Total Revenue</div>
-                                    <div class="display-6 text-success fw-bold"><?php echo '$' . number_format($total_revenue, 2); ?></div>
+                                    <div class="display-6 text-success fw-bold"><?php echo $currency_symbol . number_format($total_revenue, 2); ?></div>
                                 </div>
                             </div>
                         </div>
@@ -599,7 +604,7 @@ if ($columns_result && $columns_result->num_rows > 0) {
                                                     echo '<span class="badge bg-secondary">Unknown</span>';
                                             } ?>
                                         </td>
-                                        <td>$<?php echo number_format($booking['total_amount'], 2); ?></td>
+                                        <td><?php echo $currency_symbol . number_format($booking['total_amount'], 2); ?></td>
                                         <td>
                                             <div class="dropdown">
                                                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -737,7 +742,7 @@ if ($columns_result && $columns_result->num_rows > 0) {
                         <div class="mb-3">
                             <label for="refund_amount" class="form-label">Refund Amount</label>
                             <div class="input-group">
-                                <span class="input-group-text">$</span>
+                                <span class="input-group-text"><?php echo $currency_symbol; ?></span>
                                 <input type="number" step="0.01" class="form-control" id="refund_amount" name="refund_amount" value="0.00">
                             </div>
                         </div>

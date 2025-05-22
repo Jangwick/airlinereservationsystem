@@ -44,8 +44,8 @@ if (!$settings_table_exists) {
         ['booking_expiry_minutes', '30', 'booking', 'number', 'Booking Expiry (Minutes)', 'Number of minutes before an unpaid booking expires'],
         
         // Payment Settings
-        ['currency_code', 'USD', 'payment', 'text', 'Currency Code', 'Currency code for payments (e.g., USD, EUR)'],
-        ['currency_symbol', '$', 'payment', 'text', 'Currency Symbol', 'Currency symbol for display'],
+        ['currency_code', 'PHP', 'payment', 'text', 'Currency Code', 'Currency code for payments (e.g., PHP, USD, EUR)'],
+        ['currency_symbol', '₱', 'payment', 'text', 'Currency Symbol', 'Currency symbol for display'],
         ['payment_gateway', 'paypal', 'payment', 'select', 'Payment Gateway', 'Default payment gateway'],
         ['test_mode', '1', 'payment', 'boolean', 'Test Mode', 'Enable test/sandbox mode for payments'],
         ['vat_percentage', '12', 'payment', 'number', 'VAT Percentage', 'VAT tax percentage applied to bookings'],

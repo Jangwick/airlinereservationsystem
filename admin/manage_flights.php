@@ -131,17 +131,27 @@ try {
               'London', 'Paris', 'Tokyo', 'Sydney', 'Dubai'];
 }
 
-// Get flight statistics - updated to use actual booking data
-$stats_query = "SELECT 
-                COUNT(*) as `total`,
-                SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) as `scheduled`,
-                SUM(CASE WHEN status = 'delayed' THEN 1 ELSE 0 END) as `delayed`,
-                SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as `cancelled`,
-                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as `completed`,
-                SUM(CASE WHEN departure_time > NOW() THEN 1 ELSE 0 END) as `upcoming`
-                FROM flights";
-$stats_result = $conn->query($stats_query);
-$stats = $stats_result->fetch_assoc();
+// Get flight statistics
+// Total flights
+$query_total = "SELECT COUNT(*) as count FROM flights";
+$total_flights = $conn->query($query_total)->fetch_assoc()['count'];
+
+// Status counts
+$query_scheduled = "SELECT COUNT(*) as count FROM flights WHERE status = 'scheduled'";
+$query_delayed = "SELECT COUNT(*) as count FROM flights WHERE status = 'delayed'";
+$query_cancelled = "SELECT COUNT(*) as count FROM flights WHERE status = 'cancelled'";
+$query_boarding = "SELECT COUNT(*) as count FROM flights WHERE status = 'boarding'";
+$query_departed = "SELECT COUNT(*) as count FROM flights WHERE status = 'departed'";
+$query_arrived = "SELECT COUNT(*) as count FROM flights WHERE status = 'arrived'";
+$query_today = "SELECT COUNT(*) as count FROM flights WHERE DATE(departure_time) = CURDATE()";
+
+$scheduled_flights = $conn->query($query_scheduled)->fetch_assoc()['count'];
+$delayed_flights = $conn->query($query_delayed)->fetch_assoc()['count'];
+$cancelled_flights = $conn->query($query_cancelled)->fetch_assoc()['count'];
+$boarding_flights = $conn->query($query_boarding)->fetch_assoc()['count'];
+$departed_flights = $conn->query($query_departed)->fetch_assoc()['count'];
+$arrived_flights = $conn->query($query_arrived)->fetch_assoc()['count'];
+$today_flights = $conn->query($query_today)->fetch_assoc()['count'];
 
 // Add a utility function to check flight prices
 function checkAndFixFlightPrices($conn) {
@@ -192,7 +202,6 @@ checkAndFixFlightPrices($conn);
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Manage Flights</h1>
-                    <!-- Stats Cards -->
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <div class="btn-group me-2">
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="printReport()">
@@ -207,98 +216,255 @@ checkAndFixFlightPrices($conn);
                         </a>
                     </div>
                 </div>
-                <div class="row mb-4">
-                    <div class="col-xl-2 col-md-4 mb-4">
-                        <div class="card border-left-primary h-100 py-2">
-                            <div class="card-body">
+
+                <!-- Status Cards Row 1 -->
+                <div class="row mb-3">
+                    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+                        <div class="card border-start border-4 border-primary shadow-sm h-100">
+                            <div class="card-body p-3">
                                 <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Flights</div>
-                                        <div class="h5 mb-0 font-weight-bold"><?php echo $stats['total'] ?? 0; ?></div>
+                                    <div class="col-8">
+                                        <div class="text-xs text-uppercase text-muted fw-bold mb-1">Total Flights</div>
+                                        <div class="h3 mb-0 fw-bold"><?php echo $total_flights; ?></div>
                                     </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-plane fa-2x text-gray-300"></i>
+                                    <div class="col-4 text-end">
+                                        <i class="fas fa-plane fa-2x text-primary opacity-50"></i>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-xl-2 col-md-4 mb-4">
-                        <div class="card border-left-success h-100 py-2">
-                            <div class="card-body">
+
+                    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+                        <div class="card border-start border-4 border-success shadow-sm h-100">
+                            <div class="card-body p-3">
                                 <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Scheduled</div>
-                                        <div class="h5 mb-0 font-weight-bold"><?php echo $stats['scheduled'] ?? 0; ?></div>
+                                    <div class="col-8">
+                                        <div class="text-xs text-uppercase text-muted fw-bold mb-1">Scheduled</div>
+                                        <div class="h3 mb-0 fw-bold"><?php echo $scheduled_flights; ?></div>
                                     </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-calendar-check fa-2x text-gray-300"></i>
+                                    <div class="col-4 text-end">
+                                        <i class="fas fa-calendar fa-2x text-success opacity-50"></i>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-xl-2 col-md-4 mb-4">
-                        <div class="card border-left-info h-100 py-2">
-                            <div class="card-body">
+
+                    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+                        <div class="card border-start border-4 border-info shadow-sm h-100">
+                            <div class="card-body p-3">
                                 <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Upcoming</div>
-                                        <div class="h5 mb-0 font-weight-bold"><?php echo $stats['upcoming'] ?? 0; ?></div>
+                                    <div class="col-8">
+                                        <div class="text-xs text-uppercase text-muted fw-bold mb-1">Boarding</div>
+                                        <div class="h3 mb-0 fw-bold"><?php echo $boarding_flights; ?></div>
                                     </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-plane-departure fa-2x text-gray-300"></i>
+                                    <div class="col-4 text-end">
+                                        <i class="fas fa-door-open fa-2x text-info opacity-50"></i>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-xl-2 col-md-4 mb-4">
-                        <div class="card border-left-warning h-100 py-2">
-                            <div class="card-body">
+
+                    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+                        <div class="card border-start border-4 border-primary shadow-sm h-100">
+                            <div class="card-body p-3">
                                 <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Delayed</div>
-                                        <div class="h5 mb-0 font-weight-bold"><?php echo $stats['delayed'] ?? 0; ?></div>
+                                    <div class="col-8">
+                                        <div class="text-xs text-uppercase text-muted fw-bold mb-1">Departed</div>
+                                        <div class="h3 mb-0 fw-bold"><?php echo $departed_flights; ?></div>
                                     </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-clock fa-2x text-gray-300"></i>
+                                    <div class="col-4 text-end">
+                                        <i class="fas fa-plane-departure fa-2x text-primary opacity-50"></i>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-xl-2 col-md-4 mb-4">
-                        <div class="card border-left-danger h-100 py-2">
-                            <div class="card-body">
+
+                    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+                        <div class="card border-start border-4 border-secondary shadow-sm h-100">
+                            <div class="card-body p-3">
                                 <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Cancelled</div>
-                                        <div class="h5 mb-0 font-weight-bold"><?php echo $stats['cancelled'] ?? 0; ?></div>
+                                    <div class="col-8">
+                                        <div class="text-xs text-uppercase text-muted fw-bold mb-1">Arrived</div>
+                                        <div class="h3 mb-0 fw-bold"><?php echo $arrived_flights; ?></div>
                                     </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-ban fa-2x text-gray-300"></i>
+                                    <div class="col-4 text-end">
+                                        <i class="fas fa-plane-arrival fa-2x text-secondary opacity-50"></i>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-xl-2 col-md-4 mb-4">
-                        <div class="card border-left-secondary h-100 py-2">
-                            <div class="card-body">
+
+                    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+                        <div class="card border-start border-4 border-warning shadow-sm h-100">
+                            <div class="card-body p-3">
                                 <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">Completed</div>
-                                        <div class="h5 mb-0 font-weight-bold"><?php echo $stats['completed'] ?? 0; ?></div>
+                                    <div class="col-8">
+                                        <div class="text-xs text-uppercase text-muted fw-bold mb-1">Delayed</div>
+                                        <div class="h3 mb-0 fw-bold"><?php echo $delayed_flights; ?></div>
                                     </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-check-double fa-2x text-gray-300"></i>
+                                    <div class="col-4 text-end">
+                                        <i class="fas fa-clock fa-2x text-warning opacity-50"></i>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Status Cards Row 2 -->
+                <div class="row mb-4">
+                    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+                        <div class="card border-start border-4 border-danger shadow-sm h-100">
+                            <div class="card-body p-3">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col-8">
+                                        <div class="text-xs text-uppercase text-muted fw-bold mb-1">Cancelled</div>
+                                        <div class="h3 mb-0 fw-bold"><?php echo $cancelled_flights; ?></div>
+                                    </div>
+                                    <div class="col-4 text-end">
+                                        <i class="fas fa-ban fa-2x text-danger opacity-50"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+                        <div class="card border-start border-4 border-info shadow-sm h-100">
+                            <div class="card-body p-3">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col-8">
+                                        <div class="text-xs text-uppercase text-muted fw-bold mb-1">Today</div>
+                                        <div class="h3 mb-0 fw-bold"><?php echo $today_flights; ?></div>
+                                    </div>
+                                    <div class="col-4 text-end">
+                                        <i class="fas fa-calendar-day fa-2x text-info opacity-50"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Future projected card -->
+                    <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+                        <div class="card border-start border-4 border-success shadow-sm h-100">
+                            <div class="card-body p-3">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col-8">
+                                        <div class="text-xs text-uppercase text-muted fw-bold mb-1">This Week</div>
+                                        <div class="h3 mb-0 fw-bold"><?php 
+                                            // Query for flights in the current week
+                                            $query_week = "SELECT COUNT(*) as count FROM flights WHERE YEARWEEK(departure_time) = YEARWEEK(NOW())";
+                                            echo $conn->query($query_week)->fetch_assoc()['count'] ?? 0;
+                                        ?></div>
+                                    </div>
+                                    <div class="col-4 text-end">
+                                        <i class="fas fa-calendar-week fa-2x text-success opacity-50"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Styles for Stats Cards -->
+                <style>
+                    /* Improved styles for stats cards */
+                    .card {
+                        transition: transform 0.2s, box-shadow 0.2s;
+                        overflow: hidden;
+                    }
+                    
+                    .card:hover {
+                        transform: translateY(-5px);
+                        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+                    }
+                    
+                    .card-body {
+                        position: relative;
+                        z-index: 1;
+                    }
+                    
+                    .card i {
+                        position: relative;
+                        z-index: 0;
+                    }
+                    
+                    /* Font sizes */
+                    .text-xs {
+                        font-size: 0.7rem;
+                        letter-spacing: 0.05em;
+                    }
+                    
+                    .h3 {
+                        font-size: 1.75rem;
+                    }
+                    
+                    /* Responsive adjustments */
+                    @media (max-width: 1400px) {
+                        .h3 {
+                            font-size: 1.5rem;
+                        }
+                    }
+                    
+                    @media (max-width: 992px) {
+                        .card .col-8 {
+                            width: 70%;
+                        }
+                        .card .col-4 {
+                            width: 30%;
+                        }
+                    }
+                </style>
+
+                <!-- Add this right after the cards to fix any display issues -->
+                <script>
+                    // Fix for Stats Cards display
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const statusCards = document.querySelectorAll('.card');
+                        statusCards.forEach(card => {
+                            // Force redraw of cards to fix any potential display issues
+                            card.style.display = 'none';
+                            card.offsetHeight; // Trigger reflow
+                            card.style.display = '';
+                        });
+                    });
+                </script>
+
+                <!-- Flight Status Badges - for displaying statuses in flight table -->
+                <script>
+                    // Function to get appropriate badge class for flight status
+                    function getFlightStatusBadge(status) {
+                        let badgeClass = 'secondary';
+                        
+                        switch (status.toLowerCase()) {
+                            case 'scheduled': badgeClass = 'success'; break;
+                            case 'delayed': badgeClass = 'warning'; break;
+                            case 'boarding': badgeClass = 'info'; break;
+                            case 'departed': badgeClass = 'primary'; break;
+                            case 'arrived': badgeClass = 'secondary'; break;
+                            case 'cancelled': badgeClass = 'danger'; break;
+                        }
+                        
+                        return `bg-${badgeClass}`;
+                    }
+                    
+                    // Apply status badges on page load
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const statusCells = document.querySelectorAll('td[data-status]');
+                        statusCells.forEach(cell => {
+                            const status = cell.getAttribute('data-status');
+                            const statusText = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+                            cell.innerHTML = `<span class="badge ${getFlightStatusBadge(status)}">${statusText}</span>`;
+                        });
+                    });
+                </script>
+
                 <!-- Filters -->
                 <div class="card mb-4">
                     <div class="card-header bg-white py-3">
@@ -413,16 +579,10 @@ checkAndFixFlightPrices($conn);
                                                 echo $duration->h . 'h ' . $duration->i . 'm';
                                             ?>
                                         </td>
-                                        <td>
-                                            <?php if ($flight['status'] == 'scheduled'): ?>
-                                                <span class="badge bg-success">Scheduled</span>
-                                            <?php elseif ($flight['status'] == 'delayed'): ?>
-                                                <span class="badge bg-warning text-dark">Delayed</span>
-                                            <?php elseif ($flight['status'] == 'cancelled'): ?>
-                                                <span class="badge bg-danger">Cancelled</span>
-                                            <?php elseif ($flight['status'] == 'completed'): ?>
-                                                <span class="badge bg-info">Completed</span>
-                                            <?php endif; ?>
+                                        <!-- Replace the status display in the flights table -->
+                                        <td data-status="<?php echo htmlspecialchars($flight['status']); ?>">
+                                            <!-- This will be replaced by the JavaScript function -->
+                                            <?php echo htmlspecialchars(ucfirst($flight['status'])); ?>
                                         </td>
                                         <td>
                                             <?php 
@@ -489,6 +649,15 @@ checkAndFixFlightPrices($conn);
         </div>
     </div>
 
+    <!-- Near the top of the page, add this to display status messages -->
+    <?php if (isset($_SESSION['flight_status'])): ?>
+        <div class="alert alert-<?php echo $_SESSION['flight_status']['type']; ?> alert-dismissible fade show" role="alert">
+            <?php echo $_SESSION['flight_status']['message']; ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <?php unset($_SESSION['flight_status']); ?>
+    <?php endif; ?>
+
     <!-- Status Update Modal -->
     <div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -498,31 +667,38 @@ checkAndFixFlightPrices($conn);
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="statusForm" action="flight_actions.php" method="post">
-                        <input type="hidden" id="flightId" name="flight_id">
+                    <form id="updateStatusForm" action="flight_actions.php" method="post">
                         <input type="hidden" name="action" value="update_status">
+                        <input type="hidden" id="flightId" name="flight_id" value="">
+                        
                         <div class="mb-3">
                             <label for="flightStatus" class="form-label">Flight Status</label>
                             <select class="form-select" id="flightStatus" name="status" required>
                                 <option value="scheduled">Scheduled</option>
                                 <option value="delayed">Delayed</option>
-                                <option value="cancelled">Cancelled</option>
-                                <option value="completed">Completed</option>
                                 <option value="boarding">Boarding</option>
                                 <option value="departed">Departed</option>
-                                <option value="in_air">In Air</option>
                                 <option value="arrived">Arrived</option>
+                                <option value="cancelled">Cancelled</option>
                             </select>
                         </div>
+                        
                         <div class="mb-3" id="delayReasonGroup" style="display: none;">
-                            <label for="delayReason" class="form-label">Reason for Delay/Cancellation</label>
+                            <label for="delayReason" class="form-label">Reason</label>
                             <textarea class="form-control" id="delayReason" name="reason" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="notifyPassengers" name="notify_passengers" value="1" checked>
+                            <label class="form-check-label" for="notifyPassengers">
+                                Notify passengers via email
+                            </label>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="saveStatus">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('updateStatusForm').submit()">Update Status</button>
                 </div>
             </div>
         </div>
@@ -567,7 +743,8 @@ checkAndFixFlightPrices($conn);
         $('#flightsTable').DataTable({
             "pageLength": 10,
             "ordering": true,
-            "info": true
+            "info": true,
+            "searching": true
         });
         
         // Toggle delay reason visibility based on status
@@ -579,71 +756,155 @@ checkAndFixFlightPrices($conn);
                 $('#delayReasonGroup').hide();
             }
         });
-        
-        // Handle status form submission
-        $('#saveStatus').on('click', function() {
-            // In real implementation, this would use AJAX to submit to flight_actions.php
-            alert('Status updated successfully!');
-            $('#statusModal').modal('hide');
-            // In a real implementation, you would reload or update the page
-        });
-        
-        // Handle delete form submission
-        $('#confirmDeleteBtn').on('click', function() {
-            // In real implementation, this would use AJAX to submit to flight_actions.php
-            alert('Flight deleted successfully!');
-            $('#deleteModal').modal('hide');
-            // In a real implementation, you would reload or update the page
-        });
-        
-        // Action button event listeners using data attributes
-        $(document).on('click', '.action-btn', function(e) {
-            e.preventDefault();
-            const action = $(this).data('action');
-            const flightId = $(this).data('flight-id');
-            
-            if (action === 'updateStatus') {
-                updateStatus(flightId);
-            } else if (action === 'confirmDelete') {
-                const flightNumber = $(this).data('flight-number');
-                confirmDelete(flightId, flightNumber);
-            }
-        });
     });
-    
+
     // Function to show status update modal
-    function updateStatus(flightId) {
-        console.log("Opening status modal for flight ID:", flightId);
-        $('#flightId').val(flightId);
+    function updateStatus(flightId, currentStatus = '') {
+        document.getElementById('flightId').value = flightId;
         
-        // Create modal instance using Bootstrap 5 syntax
+        // Pre-select current status if provided
+        if (currentStatus) {
+            document.getElementById('flightStatus').value = currentStatus;
+        }
+        
+        // Show/hide delay reason field based on selected status
+        const status = document.getElementById('flightStatus').value;
+        const delayReasonGroup = document.getElementById('delayReasonGroup');
+        
+        if (status === 'delayed' || status === 'cancelled') {
+            delayReasonGroup.style.display = 'block';
+            document.getElementById('delayReason').required = true;
+        } else {
+            delayReasonGroup.style.display = 'none';
+            document.getElementById('delayReason').required = false;
+        }
+        
+        // Show the modal
         const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
         statusModal.show();
-        
-        // By default hide the delay reason field
-        $('#delayReasonGroup').hide();
     }
     
-    // Function to show delete confirmation modal
-    function confirmDelete(flightId, flightNumber) {
-        console.log("Opening delete modal for flight:", flightNumber);
-        $('#deleteFlightId').val(flightId);
-        $('#flightToDelete').text(flightNumber);
-        
-        // Create modal instance using Bootstrap 5 syntax
-        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-        deleteModal.show();
-    }
-    
-    // Export to CSV function
-    function exportFlights() {
-        window.location.href = 'export_flights.php?' + window.location.search.substring(1);
+    // Function to export flights
+    function exportFlights() { 
+        window.location.href = 'export_flights.php?' + window.location.search.substring(1); 
     }
     
     // Print function
-    function printReport() {
-        window.print();
+    function printReport() { 
+        window.print(); 
     }
+    
+    // Add this to ensure the status update functionality works
+    document.addEventListener("DOMContentLoaded", function() {
+        // Handle data-action attributes in flight management table
+        document.querySelectorAll('[data-action="updateStatus"]').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const flightId = this.getAttribute('data-flight-id');
+                updateStatus(flightId);
+            });
+        });
+        
+        // Toggle delay reason visibility based on status selection
+        const flightStatus = document.getElementById('flightStatus');
+        if (flightStatus) {
+            flightStatus.addEventListener('change', function() {
+                const delayReasonGroup = document.getElementById('delayReasonGroup');
+                if (this.value === 'delayed' || this.value === 'cancelled') {
+                    delayReasonGroup.style.display = 'block';
+                    document.getElementById('delayReason').required = true;
+                } else {
+                    delayReasonGroup.style.display = 'none';
+                    document.getElementById('delayReason').required = false;
+                }
+            });
+        }
+    });
 </script>
+<!-- Flight Status Badges - add this right before the flights table where the status badges are displayed -->
+<script>
+    // Function to get appropriate badge class and text for flight status
+    function getFlightStatusBadge(status) {
+        let badgeClass, statusText;
+        
+        switch (status.toLowerCase()) {
+            case 'scheduled':
+                badgeClass = 'success';
+                statusText = 'Scheduled';
+                break;
+            case 'delayed':
+                badgeClass = 'warning';
+                statusText = 'Delayed';
+                break;
+            case 'boarding':
+                badgeClass = 'info';
+                statusText = 'Boarding';
+                break;
+            case 'departed':
+                badgeClass = 'primary';
+                statusText = 'Departed';
+                break;
+            case 'arrived':
+                badgeClass = 'secondary';
+                statusText = 'Arrived';
+                break;
+            case 'cancelled':
+                badgeClass = 'danger';
+                statusText = 'Cancelled';
+                break;
+            default:
+                badgeClass = 'secondary';
+                statusText = status || 'Unknown';
+        }
+        
+        return `<span class="badge bg-${badgeClass}">${statusText}</span>`;
+    }
+    
+    // Apply this to all status cells when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('td[data-status]').forEach(function(cell) {
+            const status = cell.getAttribute('data-status');
+            cell.innerHTML = getFlightStatusBadge(status);
+        });
+    });
+</script>
+<!-- Add CSS to support the stats cards design -->
+<style>
+    /* Lighter versions of Bootstrap colors for icons */
+    .text-primary-lighter { color: #6495ED; }
+    .text-success-lighter { color: #8BC34A; }
+    .text-info-lighter { color: #4FC3F7; }
+    .text-warning-lighter { color: #FFD54F; }
+    .text-danger-lighter { color: #FF8A80; }
+    .text-secondary-lighter { color: #9E9E9E; }
+
+    /* Improve card appearance */
+    .card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        overflow: hidden;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+    
+    /* Adjust font sizes for responsiveness */
+    .display-6 {
+        font-size: 1.8rem;
+    }
+    
+    @media (max-width: 1400px) {
+        .display-6 {
+            font-size: 1.5rem;
+        }
+    }
+    
+    @media (max-width: 992px) {
+        .display-6 {
+            font-size: 1.8rem;
+        }
+    }
+</style>
 </body>
 </html>

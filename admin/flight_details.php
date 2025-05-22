@@ -9,6 +9,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 
 // Include database connection
 require_once '../db/db_config.php';
+// Include currency helper
+require_once '../includes/currency_helper.php';
 
 // Check if flight_id is provided
 $flight_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -86,6 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_price'])) {
         $price_update_message = '<div class="alert alert-danger">Please enter a valid price.</div>';
     }
 }
+
+// Get currency symbol
+$currency_symbol = getCurrencySymbol($conn);
 ?>
 
 <!DOCTYPE html>
@@ -269,7 +274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_price'])) {
                                     <div class="mb-4">
                                         <label for="price" class="form-label">Total Price per Passenger</label>
                                         <div class="input-group">
-                                            <span class="input-group-text">$</span>
+                                            <span class="input-group-text"><?php echo $currency_symbol; ?></span>
                                             <input type="number" step="0.01" min="0" class="form-control" id="price" name="price" value="<?php echo $flight['price']; ?>">
                                             <button type="submit" name="update_price" class="btn btn-primary">Update</button>
                                         </div>
@@ -282,7 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_price'])) {
                                 <div class="mb-3">
                                     <div class="d-flex justify-content-between mb-1">
                                         <span class="fw-bold">Base Fare</span>
-                                        <span>$<?php echo number_format($flight['base_fare'], 2); ?></span>
+                                        <span><?php echo $currency_symbol . number_format($flight['base_fare'], 2); ?></span>
                                     </div>
                                     <div class="form-text">85% of total price</div>
                                 </div>
@@ -290,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_price'])) {
                                 <div class="mb-3">
                                     <div class="d-flex justify-content-between mb-1">
                                         <span class="fw-bold">Taxes & Fees</span>
-                                        <span>$<?php echo number_format($flight['taxes_fees'], 2); ?></span>
+                                        <span><?php echo $currency_symbol . number_format($flight['taxes_fees'], 2); ?></span>
                                     </div>
                                     <div class="form-text">15% of total price</div>
                                 </div>
@@ -335,12 +340,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_price'])) {
                                     
                                     <div class="d-flex justify-content-between mb-1">
                                         <span class="fw-bold">Total Revenue</span>
-                                        <span class="text-success">$<?php echo number_format($flight['total_revenue'], 2); ?></span>
+                                        <span class="text-success"><?php echo $currency_symbol . number_format($flight['total_revenue'], 2); ?></span>
                                     </div>
                                     
                                     <div class="d-flex justify-content-between mb-1">
                                         <span class="fw-bold">Potential Revenue</span>
-                                        <span>$<?php echo number_format($flight['price'] * $flight['total_seats'], 2); ?></span>
+                                        <span><?php echo $currency_symbol . number_format($flight['price'] * $flight['total_seats'], 2); ?></span>
                                     </div>
                                 </div>
                             </div>
@@ -442,7 +447,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_price'])) {
                                             </span>
                                         </td>
                                         <td><?php echo $booking['passengers']; ?></td>
-                                        <td>$<?php echo number_format($booking['total_amount'], 2); ?></td>
+                                        <td><?php echo $currency_symbol . number_format($booking['total_amount'], 2); ?></td>
                                         <td>
                                             <a href="booking_details.php?id=<?php echo $booking['booking_id']; ?>" class="btn btn-sm btn-primary">View</a>
                                         </td>
@@ -513,6 +518,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_price'])) {
                     <form id="updateStatusForm" action="flight_actions.php" method="post">
                         <input type="hidden" name="action" value="update_status">
                         <input type="hidden" name="flight_id" value="<?php echo $flight_id; ?>">
+                        <input type="hidden" name="from_details" value="1">
                         
                         <div class="mb-3">
                             <label for="status" class="form-label">Flight Status</label>

@@ -10,6 +10,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 // Include database connection
 require_once '../db/db_config.php';
 
+// Include currency helper
+require_once '../includes/currency_helper.php';
+
+// Get currency symbol
+$currency_symbol = getCurrencySymbol($conn);
+
 // Initialize variables
 $report_type = isset($_GET['report_type']) ? $_GET['report_type'] : 'booking';
 $date_from = isset($_GET['date_from']) ? $_GET['date_from'] : date('Y-m-01'); // First day of current month
@@ -265,6 +271,33 @@ if (isset($_GET['export']) && $_GET['export'] === 'true') {
     fclose($output);
     exit;
 }
+
+// Get total flights
+$query_total_flights = "SELECT COUNT(*) as total_flights FROM flights";
+$total_flights = $conn->query($query_total_flights)->fetch_assoc()['total_flights'];
+
+// Get cancelled flights
+$query_cancelled_flights = "SELECT COUNT(*) as cancelled_flights FROM flights WHERE status = 'cancelled'";
+$cancelled_flights = $conn->query($query_cancelled_flights)->fetch_assoc()['cancelled_flights'];
+
+// Calculate cancellation rate
+$cancellation_rate = ($total_flights > 0) ? ($cancelled_flights / $total_flights) * 100 : 0;
+
+// Get total cancelled bookings
+$query_cancelled_bookings = "SELECT COUNT(*) as cancelled_bookings FROM bookings WHERE booking_status = 'cancelled'";
+$cancelled_bookings = $conn->query($query_cancelled_bookings)->fetch_assoc()['cancelled_bookings'];
+
+// Get total bookings
+$query_total_bookings = "SELECT COUNT(*) as total_bookings FROM bookings";
+$total_bookings = $conn->query($query_total_bookings)->fetch_assoc()['total_bookings'];
+
+// Calculate booking cancellation rate
+$booking_cancellation_rate = ($total_bookings > 0) ? ($cancelled_bookings / $total_bookings) * 100 : 0;
+
+// Get total revenue
+$revenue_query = "SELECT SUM(total_amount) as total_revenue FROM bookings WHERE payment_status = 'completed'";
+$revenue_result = $conn->query($revenue_query);
+$total_revenue = $revenue_result->fetch_assoc()['total_revenue'] ?? 0;
 ?>
 
 <!DOCTYPE html>
@@ -408,7 +441,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'true') {
                                     <div class="col mr-2">
                                         <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
                                             Total Revenue</div>
-                                        <div class="h5 mb-0 font-weight-bold">$<?php echo number_format($total_revenue, 2); ?></div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $currency_symbol . number_format($total_revenue, 2); ?></div>
                                     </div>
                                     <div class="col-auto">
                                         <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
@@ -516,7 +549,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'true') {
                                         <td><?php echo $row['confirmed']; ?></td>
                                         <td><?php echo $row['pending']; ?></td>
                                         <td><?php echo $row['cancelled']; ?></td>
-                                        <td>$<?php echo number_format($row['revenue'], 2); ?></td>
+                                        <td><?php echo $currency_symbol . number_format($row['revenue'], 2); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -527,7 +560,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'true') {
                                         <th><?php echo $total_confirmed; ?></th>
                                         <th><?php echo $total_pending; ?></th>
                                         <th><?php echo $total_cancelled; ?></th>
-                                        <th>$<?php echo number_format($total_revenue, 2); ?></th>
+                                        <th><?php echo $currency_symbol . number_format($total_revenue, 2); ?></th>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -601,7 +634,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'true') {
                                     <div class="col mr-2">
                                         <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
                                             Total Revenue</div>
-                                        <div class="h5 mb-0 font-weight-bold">$<?php echo number_format($total_rev, 2); ?></div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $currency_symbol . number_format($total_rev, 2); ?></div>
                                     </div>
                                     <div class="col-auto">
                                         <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
@@ -635,7 +668,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'true') {
                                     <div class="col mr-2">
                                         <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
                                             Average Booking Value</div>
-                                        <div class="h5 mb-0 font-weight-bold">$<?php echo number_format($avg_booking_value, 2); ?></div>
+                                        <div class="h5 mb-0 font-weight-bold"><?php echo $currency_symbol . number_format($avg_booking_value, 2); ?></div>
                                     </div>
                                     <div class="col-auto">
                                         <i class="fas fa-chart-line fa-2x text-gray-300"></i>
@@ -676,18 +709,18 @@ if (isset($_GET['export']) && $_GET['export'] === 'true') {
                                     <?php foreach ($revenue_data as $row): ?>
                                     <tr>
                                         <td><?php echo date('Y-m-d', strtotime($row['date'])); ?></td>
-                                        <td>$<?php echo number_format($row['total_revenue'], 2); ?></td>
+                                        <td><?php echo $currency_symbol . number_format($row['total_revenue'], 2); ?></td>
                                         <td><?php echo $row['bookings']; ?></td>
-                                        <td>$<?php echo number_format($row['average_booking_value'], 2); ?></td>
+                                        <td><?php echo $currency_symbol . number_format($row['average_booking_value'], 2); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
                                 <tfoot>
                                     <tr>
                                         <th>Total</th>
-                                        <th>$<?php echo number_format($total_rev, 2); ?></th>
+                                        <th><?php echo $currency_symbol . number_format($total_rev, 2); ?></th>
                                         <th><?php echo $total_bookings_rev; ?></th>
-                                        <th>$<?php echo number_format($avg_booking_value, 2); ?></th>
+                                        <th><?php echo $currency_symbol . number_format($avg_booking_value, 2); ?></th>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -800,6 +833,130 @@ if (isset($_GET['export']) && $_GET['export'] === 'true') {
                     </div>
                 </div>
                 <?php endif; ?>
+
+                <!-- Cancellation Rate Card -->
+                <div class="row mb-4">
+                    <div class="col-xl-4 col-md-6 mb-4">
+                        <div class="card border-left-success shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                            Total Revenue</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $currency_symbol . number_format($total_revenue, 2); ?></div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-xl-4 col-md-6 mb-4">
+                        <div class="card border-left-warning shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                            Flight Cancellation Rate</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($cancellation_rate, 1); ?>%</div>
+                                        <div class="small text-muted"><?php echo $cancelled_flights; ?> of <?php echo $total_flights; ?> flights</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-ban fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-xl-4 col-md-6 mb-4">
+                        <div class="card border-left-danger shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                            Booking Cancellation Rate</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($booking_cancellation_rate, 1); ?>%</div>
+                                        <div class="small text-muted"><?php echo $cancelled_bookings; ?> of <?php echo $total_bookings; ?> bookings</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-times-circle fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Cancellation Analysis Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card shadow mb-4">
+                            <div class="card-header py-3">
+                                <h6 class="m-0 font-weight-bold text-primary">Cancellation Analysis</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered" width="100%" cellspacing="0">
+                                        <thead>
+                                            <tr>
+                                                <th>Month</th>
+                                                <th>Total Flights</th>
+                                                <th>Cancelled Flights</th>
+                                                <th>Cancellation Rate</th>
+                                                <th>Main Reasons</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                            // Get monthly cancellation data for the past 6 months
+                                            $query = "SELECT 
+                                                DATE_FORMAT(departure_time, '%Y-%m') as month,
+                                                COUNT(*) as total,
+                                                SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
+                                              FROM flights
+                                              WHERE departure_time >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+                                              GROUP BY DATE_FORMAT(departure_time, '%Y-%m')
+                                              ORDER BY month DESC
+                                              LIMIT 6";
+                                            
+                                            $result = $conn->query($query);
+                                            
+
+                                            while ($row = $result->fetch_assoc()) {
+                                                $month_name = date('F Y', strtotime($row['month'] . '-01'));
+                                                $monthly_rate = ($row['total'] > 0) ? ($row['cancelled'] / $row['total']) * 100 : 0;
+                                                
+                                                echo "<tr>";
+                                                echo "<td>" . $month_name . "</td>";
+                                                echo "<td>" . $row['total'] . "</td>";
+                                                echo "<td>" . $row['cancelled'] . "</td>";
+                                                echo "<td>" . number_format($monthly_rate, 1) . "%</td>";
+                                                
+                                                // You could enhance this with actual reasons if you track them in your database
+                                                echo "<td>Weather, Technical Issues</td>";
+                                                echo "</tr>";
+                                            }
+                                            
+
+                                            if ($result->num_rows === 0) {
+                                                echo "<tr><td colspan='5' class='text-center'>No data available</td></tr>";
+                                            }
+                                            ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="mt-3">
+                                    <a href="cancellation_details.php" class="btn btn-sm btn-primary">
+                                        View Detailed Report
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
             </main>
         </div>
@@ -947,8 +1104,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'true') {
                             }
                         }
                     }
-                }
-            });
+                });
             <?php endif; ?>
             
             <?php if ($report_type === 'user' && !empty($user_data)): ?>

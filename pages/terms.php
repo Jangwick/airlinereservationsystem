@@ -205,7 +205,7 @@ $baseUrl = getBaseUrl();
                         <li>Online payment services (PayPal, GCash, Maya)</li>
                         <li>Bank transfers (for group bookings only)</li>
                     </ul>
-                    <p>All payments must be made in the currency specified during the booking process. Additional fees may apply for certain payment methods.</p>
+                    <p>All payments must be made in Philippine Peso (PHP) as specified during the booking process. Additional fees may apply for certain payment methods.</p>
                 </div>
             </div>
             

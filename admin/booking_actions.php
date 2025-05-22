@@ -10,6 +10,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 // Include database connection
 require_once '../db/db_config.php';
 
+// Include currency helper
+require_once '../includes/currency_helper.php';
+
 // Check if action is set
 if (!isset($_POST['action']) && !isset($_GET['action'])) {
     $_SESSION['booking_status'] = [
@@ -562,7 +565,10 @@ function sendBookingCancellationEmail($booking, $reason, $refund_amount) {
     }
     
     if ($refund_amount > 0) {
-        $message .= "A refund of $" . number_format($refund_amount, 2) . " has been processed and will be credited to your original payment method within 5-10 business days.\n\n";
+        // Use the global currency symbol instead of hardcoded currency
+        global $conn;
+        $currency_symbol = getCurrencySymbol($conn);
+        $message .= "A refund of " . $currency_symbol . number_format($refund_amount, 2) . " has been processed and will be credited to your original payment method within 5-10 business days.\n\n";
     }
     
     $message .= "If you have any questions regarding this cancellation, please contact our customer service.\n\n";
@@ -587,7 +593,11 @@ function sendRefundEmail($booking, $refund_amount, $reason) {
     $message .= "A refund has been processed for your booking (ID: " . $booking['booking_id'] . ").\n\n";
     $message .= "Flight: " . $booking['flight_number'] . "\n";
     $message .= "Route: " . $booking['departure_city'] . " to " . $booking['arrival_city'] . "\n";
-    $message .= "Refund Amount: $" . number_format($refund_amount, 2) . "\n\n";
+    
+    // Use the global currency symbol instead of hardcoded currency
+    global $conn;
+    $currency_symbol = getCurrencySymbol($conn);
+    $message .= "Refund Amount: " . $currency_symbol . number_format($refund_amount, 2) . "\n\n";
     
     if ($reason) {
         $message .= "Reason for refund: " . $reason . "\n\n";

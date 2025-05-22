@@ -9,6 +9,8 @@ if (!isset($_SESSION['user_id'])) {
 
 // Include database connection
 require_once '../db/db_config.php';
+// Include currency helper
+require_once '../includes/currency_helper.php';
 
 $user_id = $_SESSION['user_id'];
 $booking_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -99,6 +101,9 @@ $check_in_completed = isset($booking['check_in_status']) && $booking['check_in_s
 
 // Check if cancellation is possible
 $can_cancel = $booking['booking_status'] != 'cancelled' && $booking['booking_status'] != 'completed' && $days_until > 1;
+
+// Get currency symbol
+$currency_symbol = getCurrencySymbol($conn);
 ?>
 
 <!DOCTYPE html>
@@ -556,21 +561,21 @@ $can_cancel = $booking['booking_status'] != 'cancelled' && $booking['booking_sta
                                     <tbody>
                                         <tr>
                                             <td>Base Fare (<?php echo $passenger_count; ?> passenger<?php echo $passenger_count > 1 ? 's' : ''; ?>)</td>
-                                            <td class="text-end">$<?php echo number_format(($booking['base_fare'] ?? ($booking['price'] * 0.85)) * $passenger_count, 2); ?></td>
+                                            <td class="text-end"><?php echo $currency_symbol . number_format(($booking['base_fare'] ?? ($booking['price'] * 0.85)) * $passenger_count, 2); ?></td>
                                         </tr>
                                         <tr>
                                             <td>Taxes & Fees</td>
-                                            <td class="text-end">$<?php echo number_format(($booking['taxes_fees'] ?? ($booking['price'] * 0.15)) * $passenger_count, 2); ?></td>
+                                            <td class="text-end"><?php echo $currency_symbol . number_format(($booking['taxes_fees'] ?? ($booking['price'] * 0.15)) * $passenger_count, 2); ?></td>
                                         </tr>
                                         <?php if ($booking['total_amount'] > ($booking['price'] * $passenger_count)): ?>
                                         <tr>
                                             <td>Additional Services</td>
-                                            <td class="text-end">$<?php echo number_format($booking['total_amount'] - ($booking['price'] * $passenger_count), 2); ?></td>
+                                            <td class="text-end"><?php echo $currency_symbol . number_format($booking['total_amount'] - ($booking['price'] * $passenger_count), 2); ?></td>
                                         </tr>
                                         <?php endif; ?>
                                         <tr class="fw-bold">
                                             <td>Total</td>
-                                            <td class="text-end">$<?php echo number_format($booking['total_amount'], 2); ?></td>
+                                            <td class="text-end"><?php echo $currency_symbol . number_format($booking['total_amount'], 2); ?></td>
                                         </tr>
                                     </tbody>
                                 </table>
