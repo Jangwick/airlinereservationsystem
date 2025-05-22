@@ -17,14 +17,22 @@ A comprehensive web-based airline reservation system built with PHP and MySQL. T
 - **Payment Processing**: Secure payment integration
 - **User Dashboard**: Personalized dashboard with upcoming flight information
 - **Email Notifications**: Automatic notifications for booking confirmations, check-ins, etc.
+- **FAQ Section**: Comprehensive knowledge base with searchable questions and answers
+- **Flight Status Tracking**: Real-time updates on flight status (boarding, departed, arrived)
+- **Boarding Pass**: Digital boarding pass generation after successful check-in
+- **Multiple Payment Options**: Support for various payment methods
 
 ### Admin Features
 - **Flight Management**: Add, edit, delete, and update flight schedules
 - **Booking Management**: View and manage all bookings in the system
 - **User Management**: Manage user accounts and permissions
 - **Pricing Control**: Set and adjust flight prices, including base fare and taxes
-- **Reporting**: Generate sales reports, occupancy reports, and other analytics
+- **Dynamic Currency Support**: Configure system-wide currency symbols and formatting
+- **Flight Statistics**: View occupancy rates, cancellation statistics, and performance metrics
+- **Advanced Reporting**: Generate sales reports, occupancy reports, and other analytics
 - **System Configuration**: Configure system-wide settings
+- **Passenger Management**: Track passenger information and check-in status
+- **Admin Dashboard**: Visual overview of system performance and key metrics
 
 ## Installation
 
@@ -86,8 +94,27 @@ The system uses a MySQL database with the following main tables:
 - `payments` - Payment records
 - `tickets` - Generated tickets for flights
 - `notifications` - User notifications
+- `refunds` - Payment refund records
 
 The complete database schema can be found in `db/schema.sql`.
 
 ## Directory Structure
+
+### Key Directories
+- `/admin` - Admin panel and management interfaces
+- `/auth` - Authentication related pages (login, register, forgot password)
+- `/booking` - Booking process and management
+- `/flights` - Flight search and display
+- `/user` - User dashboard and profile management
+- `/includes` - Reusable components and helper functions
+- `/assets` - CSS, JavaScript, images and other static resources
+- `/db` - Database configuration and initialization scripts
+- `/pages` - Informational pages including FAQ, About, Contact, etc.
+
+## Recent Updates
+- Added comprehensive FAQ system with searchable Q&A
+- Implemented multi-currency support throughout the system
+- Enhanced admin dashboard with improved statistics and reporting
+- Added flight status tracking (boarding, departed, arrived states)
+- Improved mobile responsiveness across all pages
 
