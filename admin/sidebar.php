@@ -72,7 +72,7 @@ $baseUrl = getBaseUrl();
                 
                 <!-- Add Database Utilities section -->
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $current_page == 'database_utilities.php' ? 'active' : ''; ?>" href="../db/update_bookings_table.php">
+                    <a class="nav-link <?php echo $current_page == 'database_utilities.php' ? 'active' : ''; ?>" href="../db/database_utilities.php">
                         <i class="fas fa-database me-2"></i> Database Utilities
                     </a>
                 </li>

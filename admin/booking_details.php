@@ -510,25 +510,25 @@ if ($payments_table_exists) {
                     
                     <!-- Sidebar Information -->
                     <div class="col-lg-4">
-                        <!-- Admin Notes -->
                         <div class="card shadow-sm mb-4">
-                            <div class="card-header bg-white py-3">
-                                <h5 class="mb-0">Admin Notes</h5>
-                            </div>
                             <div class="card-body">
-                                <?php if (!empty($booking['admin_notes'])): ?>
-                                <div class="p-3 bg-light rounded mb-3">
-                                    <?php echo nl2br(htmlspecialchars($booking['admin_notes'])); ?>
-                                </div>
-                                <?php else: ?>
-                                <p class="text-muted">No admin notes for this booking.</p>
+                                <!-- Add this check to handle the case where admin_notes might not exist -->
+                                <?php if (isset($booking['admin_notes']) && !empty($booking['admin_notes'])): ?>
+                                    <h6 class="fw-bold mb-3">Admin Notes</h6>
+                                    <div class="admin-notes bg-light p-3 rounded mb-3">
+                                        <?php echo nl2br(htmlspecialchars($booking['admin_notes'])); ?>
+                                    </div>
                                 <?php endif; ?>
                                 
-                                <div class="mt-3">
-                                    <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="addAdminNote()">
-                                        <i class="fas fa-edit me-1"></i> Add/Edit Notes
-                                    </button>
-                                </div>
+                                <!-- Add form to update admin notes -->
+                                <form action="update_notes.php" method="post">
+                                    <input type="hidden" name="booking_id" value="<?php echo $booking['booking_id']; ?>">
+                                    <div class="mb-3">
+                                        <label for="admin_notes" class="form-label">Add/Update Admin Notes</label>
+                                        <textarea class="form-control" id="admin_notes" name="admin_notes" rows="3"><?php echo isset($booking['admin_notes']) ? htmlspecialchars($booking['admin_notes']) : ''; ?></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save Notes</button>
+                                </form>
                             </div>
                         </div>
                         

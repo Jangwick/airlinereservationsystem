@@ -23,6 +23,22 @@ if (!isset($_POST['action']) && !isset($_GET['action'])) {
 // Get action from POST or GET
 $action = isset($_POST['action']) ? $_POST['action'] : $_GET['action'];
 
+// Add this function at the top of the file after the database connection
+function columnExists($conn, $table, $column) {
+    $result = $conn->query("SHOW COLUMNS FROM $table LIKE '$column'");
+    return $result->num_rows > 0;
+}
+
+// Function to ensure admin_notes column exists - called before operations that need it
+function ensureAdminNotesColumn($conn) {
+    if (!columnExists($conn, 'bookings', 'admin_notes')) {
+        // Add the column if it doesn't exist
+        $conn->query("ALTER TABLE bookings ADD COLUMN admin_notes TEXT NULL AFTER payment_status");
+        return $conn->affected_rows > 0;
+    }
+    return true;
+}
+
 // Handle view booking action
 if ($action === 'view') {
     $booking_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -65,6 +81,9 @@ elseif ($action === 'update_status') {
     $conn->begin_transaction();
     
     try {
+        // Ensure admin_notes column exists
+        ensureAdminNotesColumn($conn);
+        
         // Update booking status
         $stmt = $conn->prepare("UPDATE bookings SET booking_status = ?, payment_status = ?, admin_notes = ? WHERE booking_id = ?");
         $stmt->bind_param("sssi", $booking_status, $payment_status, $admin_notes, $booking_id);
@@ -164,13 +183,24 @@ elseif ($action === 'cancel_booking') {
             throw new Exception("Booking not found");
         }
         
-        // Update booking status to cancelled
-        $stmt = $conn->prepare("UPDATE bookings SET booking_status = 'cancelled', 
-                                admin_notes = CONCAT(IFNULL(admin_notes, ''), '\n', ?) 
-                                WHERE booking_id = ?");
-        $cancel_note = "Cancelled by admin: $reason";
-        $stmt->bind_param("si", $cancel_note, $booking_id);
-        $stmt->execute();
+        // Check if admin_notes column exists
+        $column_check = $conn->query("SHOW COLUMNS FROM bookings LIKE 'admin_notes'");
+        $has_admin_notes = ($column_check->num_rows > 0);
+        
+        // Update booking status to cancelled with appropriate query based on column existence
+        if ($has_admin_notes) {
+            $stmt = $conn->prepare("UPDATE bookings SET booking_status = 'cancelled', 
+                                  admin_notes = CONCAT(IFNULL(admin_notes, ''), '\n', ?) 
+                                  WHERE booking_id = ?");
+            $cancel_note = "Cancelled by admin: $reason";
+            $stmt->bind_param("si", $cancel_note, $booking_id);
+            $stmt->execute();
+        } else {
+            $stmt = $conn->prepare("UPDATE bookings SET booking_status = 'cancelled' 
+                                  WHERE booking_id = ?");
+            $stmt->bind_param("i", $booking_id);
+            $stmt->execute();
+        }
         
         // Update tickets to cancelled
         $stmt = $conn->prepare("UPDATE tickets SET status = 'cancelled' WHERE booking_id = ?");
@@ -186,24 +216,38 @@ elseif ($action === 'cancel_booking') {
         // Process refund if amount > 0
         $payment_status = $booking['payment_status'];
         if ($refund_amount > 0) {
-            // Create refund record
-            $stmt = $conn->prepare("INSERT INTO refunds (booking_id, amount, reason, processed_by, created_at) 
-                                   VALUES (?, ?, ?, ?, NOW())");
-            $admin_id = $_SESSION['user_id'];
-            $stmt->bind_param("idsi", $booking_id, $refund_amount, $reason, $admin_id);
-            
-            // Try to execute the query, but don't fail if refunds table doesn't exist
             try {
+                // First check if refunds table exists
+                $table_check = $conn->query("SHOW TABLES LIKE 'refunds'");
+                
+                if ($table_check->num_rows > 0) {
+                    // Only try to insert if the table exists
+                    $stmt = $conn->prepare("INSERT INTO refunds (booking_id, amount, reason, processed_by, created_at) 
+                                        VALUES (?, ?, ?, ?, NOW())");
+                    $admin_id = $_SESSION['user_id'];
+                    $stmt->bind_param("idsi", $booking_id, $refund_amount, $reason, $admin_id);
+                    $stmt->execute();
+                } else {
+                    // Log that we couldn't record the refund due to missing table
+                    error_log("Refund of $refund_amount processed for booking #$booking_id but couldn't be recorded because 'refunds' table doesn't exist");
+                }
+                
+                // Always update the payment status regardless of whether refunds table exists
+                $payment_status = 'refunded';
+                $stmt = $conn->prepare("UPDATE bookings SET payment_status = 'refunded' WHERE booking_id = ?");
+                $stmt->bind_param("i", $booking_id);
                 $stmt->execute();
+                
             } catch (Exception $e) {
-                // Ignore error if table doesn't exist
+                // Only log the error but don't stop the cancellation process for this
+                error_log("Failed to record refund: " . $e->getMessage());
+                
+                // Still update payment status
+                $payment_status = 'refunded';
+                $stmt = $conn->prepare("UPDATE bookings SET payment_status = 'refunded' WHERE booking_id = ?");
+                $stmt->bind_param("i", $booking_id);
+                $stmt->execute();
             }
-            
-            // Update payment status
-            $payment_status = 'refunded';
-            $stmt = $conn->prepare("UPDATE bookings SET payment_status = 'refunded' WHERE booking_id = ?");
-            $stmt->bind_param("i", $booking_id);
-            $stmt->execute();
         }
         
         // Log admin action
@@ -226,10 +270,42 @@ elseif ($action === 'cancel_booking') {
         // Rollback transaction on error
         $conn->rollback();
         
-        $_SESSION['booking_status'] = [
-            'type' => 'danger',
-            'message' => 'Error cancelling booking: ' . $e->getMessage()
-        ];
+        // Special handling for refunds table not existing error
+        if (strpos($e->getMessage(), "refunds' doesn't exist") !== false) {
+            // Create refunds table
+            try {
+                $conn->query("CREATE TABLE IF NOT EXISTS `refunds` (
+                  `refund_id` int(11) NOT NULL AUTO_INCREMENT,
+                  `booking_id` int(11) NOT NULL,
+                  `amount` decimal(10,2) NOT NULL,
+                  `reason` text DEFAULT NULL,
+                  `processed_by` int(11) NOT NULL,
+                  `created_at` datetime NOT NULL,
+                  PRIMARY KEY (`refund_id`),
+                  KEY `booking_id` (`booking_id`),
+                  KEY `processed_by` (`processed_by`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+                
+                // Try the operation again
+                $_SESSION['booking_status'] = [
+                    'type' => 'info',
+                    'message' => 'Refunds table was created. Please try cancelling the booking again.'
+                ];
+            } catch (Exception $createEx) {
+                $_SESSION['booking_status'] = [
+                    'type' => 'danger',
+                    'message' => 'Error cancelling booking. Could not create refunds table: ' . $createEx->getMessage()
+                ];
+            }
+        } else {
+            $_SESSION['booking_status'] = [
+                'type' => 'danger',
+                'message' => 'Error cancelling booking: ' . $e->getMessage()
+            ];
+        }
+        
+        header("Location: manage_bookings.php");
+        exit();
     }
     
     header("Location: manage_bookings.php");

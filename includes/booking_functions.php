@@ -359,57 +359,43 @@ function getBookingStatistics() {
  * @return bool Success/failure
  */
 function updateBookingStatus($booking_id, $status, $payment_status = null, $notes = '') {
-    global $conn;
-    
-    if (!isset($conn)) {
-        return false;
-    }
-    
     try {
-        $conn->begin_transaction();
+        // Get database connection
+        global $conn;
         
-        // Update booking status
+        // Check if the admin_notes column exists
+        $column_check = $conn->query("SHOW COLUMNS FROM bookings LIKE 'admin_notes'");
+        $admin_notes_exists = ($column_check->num_rows > 0);
+        
         if ($payment_status) {
-            $stmt = $conn->prepare("UPDATE bookings SET booking_status = ?, payment_status = ?, 
-                                  admin_notes = CONCAT(IFNULL(admin_notes, ''), '\n', ?) 
-                                  WHERE booking_id = ?");
-            $stmt->bind_param("sssi", $status, $payment_status, $notes, $booking_id);
+            if ($admin_notes_exists) {
+                $stmt = $conn->prepare("UPDATE bookings SET booking_status = ?, payment_status = ?, 
+                                      admin_notes = CONCAT(IFNULL(admin_notes, ''), '\n', ?) 
+                                      WHERE booking_id = ?");
+                $stmt->bind_param("sssi", $status, $payment_status, $notes, $booking_id);
+            } else {
+                // If admin_notes column doesn't exist, skip updating it
+                $stmt = $conn->prepare("UPDATE bookings SET booking_status = ?, payment_status = ? 
+                                      WHERE booking_id = ?");
+                $stmt->bind_param("ssi", $status, $payment_status, $booking_id);
+            }
         } else {
-            $stmt = $conn->prepare("UPDATE bookings SET booking_status = ?, 
-                                  admin_notes = CONCAT(IFNULL(admin_notes, ''), '\n', ?) 
-                                  WHERE booking_id = ?");
-            $stmt->bind_param("ssi", $status, $notes, $booking_id);
-        }
-        
-        $stmt->execute();
-        
-        // Update ticket status if booking is cancelled
-        if ($status === 'cancelled') {
-            $stmt = $conn->prepare("UPDATE tickets SET status = 'cancelled' WHERE booking_id = ?");
-            $stmt->bind_param("i", $booking_id);
-            $stmt->execute();
-            
-            // Get flight_id and passengers count to update available seats
-            $stmt = $conn->prepare("SELECT flight_id, passengers FROM bookings WHERE booking_id = ?");
-            $stmt->bind_param("i", $booking_id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows > 0) {
-                $booking = $result->fetch_assoc();
-                
-                // Update flight available seats
-                $stmt = $conn->prepare("UPDATE flights SET available_seats = available_seats + ? 
-                                      WHERE flight_id = ?");
-                $stmt->bind_param("ii", $booking['passengers'], $booking['flight_id']);
-                $stmt->execute();
+            if ($admin_notes_exists) {
+                $stmt = $conn->prepare("UPDATE bookings SET booking_status = ?, 
+                                      admin_notes = CONCAT(IFNULL(admin_notes, ''), '\n', ?) 
+                                      WHERE booking_id = ?");
+                $stmt->bind_param("ssi", $status, $notes, $booking_id);
+            } else {
+                // If admin_notes column doesn't exist, skip updating it
+                $stmt = $conn->prepare("UPDATE bookings SET booking_status = ? WHERE booking_id = ?");
+                $stmt->bind_param("si", $status, $booking_id);
             }
         }
         
-        $conn->commit();
+        $stmt->execute();
         return true;
+        
     } catch (Exception $e) {
-        $conn->rollback();
         error_log("Error updating booking status: " . $e->getMessage());
         return false;
     }
