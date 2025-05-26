@@ -814,7 +814,7 @@ if ($columns_result && $columns_result->num_rows > 0) {
                         <div class="mb-3" id="partial_amount_group">
                             <label for="partial_amount" class="form-label">Refund Amount</label>
                             <div class="input-group">
-                                <span class="input-group-text">$</span>
+                                <span class="input-group-text"><?php echo $currency_symbol; ?></span>
                                 <input type="number" step="0.01" class="form-control" id="partial_amount" name="amount" value="0.00">
                             </div>
                         </div>

@@ -13,21 +13,6 @@ require_once '../db/db_config.php';
 // Check if settings table exists, create if it doesn't
 $settings_table_exists = $conn->query("SHOW TABLES LIKE 'settings'")->num_rows > 0;
 if (!$settings_table_exists) {
-    $create_table_sql = "CREATE TABLE settings (
-        setting_id INT AUTO_INCREMENT PRIMARY KEY,
-        setting_key VARCHAR(100) UNIQUE NOT NULL,
-        setting_value TEXT,
-        setting_group VARCHAR(50) NOT NULL,
-        setting_type VARCHAR(50) NOT NULL DEFAULT 'text',
-        setting_label VARCHAR(100) NOT NULL,
-        setting_description TEXT,
-        is_public TINYINT(1) DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )";
-    $conn->query($create_table_sql);
-    
-    // Insert default settings
     $default_settings = [
         // General Settings
         ['site_title', 'SkyWay Airlines', 'general', 'text', 'Site Title', 'The name of your airline website'],

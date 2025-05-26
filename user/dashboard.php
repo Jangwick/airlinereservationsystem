@@ -9,8 +9,10 @@ if (!isset($_SESSION['user_id'])) {
 
 // Include database connection
 require_once '../db/db_config.php';
+require_once '../includes/currency_helper.php';
 
 $user_id = $_SESSION['user_id'];
+$currency_symbol = getCurrencySymbol($conn);
 
 // Get user information
 $stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ?");

@@ -3,14 +3,18 @@ session_start();
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
-    // Store current page as redirect target after login
-    $_SESSION['redirect_after_login'] = 'booking/payment.php';
     header("Location: ../auth/login.php");
     exit();
 }
 
 // Include database connection
 require_once '../db/db_config.php';
+
+// Include currency helper
+require_once '../includes/currency_helper.php';
+
+// Get currency symbol
+$currency_symbol = getCurrencySymbol($conn);
 
 $user_id = $_SESSION['user_id'];
 
@@ -490,7 +494,13 @@ $duration = sprintf('%dh %dm', $interval->h + ($interval->days * 24), $interval-
                                 </div>
                             </div>
 
-                            <button type="submit" class="btn btn-primary btn-lg mt-4">Pay $<?php echo number_format($booking['total_amount'], 2); ?></button>
+                            <!-- Payment amount section -->
+                            <div class="amount-due mb-4">
+                                <h4>Amount Due</h4>
+                                <div class="h2 mb-3"><?php echo $currency_symbol . number_format($booking['total_amount'], 2); ?></div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-lg mt-4">Pay <?php echo $currency_symbol . number_format($booking['total_amount'], 2); ?></button>
                         </form>
                     </div>
                 </div>
@@ -567,7 +577,7 @@ $duration = sprintf('%dh %dm', $interval->h + ($interval->days * 24), $interval-
                         <div class="price-breakdown">
                             <div class="d-flex justify-content-between mb-2">
                                 <div>Base fare (<?php echo $passenger_count; ?> passenger<?php echo $passenger_count > 1 ? 's' : ''; ?>)</div>
-                                <div>$<?php echo number_format($booking['price'] * $passenger_count, 2); ?></div>
+                                <div><?php echo $currency_symbol . number_format($booking['price'] * $passenger_count, 2); ?></div>
                             </div>
                             
                             <div class="d-flex justify-content-between mb-2">
@@ -578,13 +588,13 @@ $duration = sprintf('%dh %dm', $interval->h + ($interval->days * 24), $interval-
                             <?php if ($booking['total_amount'] > ($booking['price'] * $passenger_count)): ?>
                                 <div class="d-flex justify-content-between mb-2">
                                     <div>Additional services</div>
-                                    <div>$<?php echo number_format($booking['total_amount'] - ($booking['price'] * $passenger_count), 2); ?></div>
+                                    <div><?php echo $currency_symbol . number_format($booking['total_amount'] - ($booking['price'] * $passenger_count), 2); ?></div>
                                 </div>
                             <?php endif; ?>
                             
                             <div class="d-flex justify-content-between pt-2 mt-2 border-top fw-bold">
                                 <div>Total amount</div>
-                                <div>$<?php echo number_format($booking['total_amount'], 2); ?></div>
+                                <div><?php echo $currency_symbol . number_format($booking['total_amount'], 2); ?></div>
                             </div>
                         </div>
                     </div>
@@ -596,30 +606,19 @@ $duration = sprintf('%dh %dm', $interval->h + ($interval->days * 24), $interval-
                         <h5 class="mb-0">Payment Summary</h5>
                     </div>
                     <div class="card-body">
-                        <table class="table table-borderless">
-                            <tbody>
-                                <tr>
-                                    <td>Base Fare (per passenger)</td>
-                                    <td class="text-end">$<?php echo number_format($base_fare, 2); ?></td>
-                                </tr>
-                                <tr>
-                                    <td>Taxes & Fees (per passenger)</td>
-                                    <td class="text-end">$<?php echo number_format($taxes_fees, 2); ?></td>
-                                </tr>
-                                <tr>
-                                    <td>Price per passenger</td>
-                                    <td class="text-end">$<?php echo number_format($price_per_passenger, 2); ?></td>
-                                </tr>
-                                <tr>
-                                    <td>Passengers</td>
-                                    <td class="text-end"><?php echo $passengers; ?></td>
-                                </tr>
-                                <tr class="border-top fw-bold">
-                                    <td>Total amount to pay</td>
-                                    <td class="text-end">$<?php echo number_format($total_price, 2); ?></td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Base Fare (<?php echo $booking['passengers']; ?> passengers)</span>
+                            <span><?php echo $currency_symbol . number_format($booking['total_amount'] * 0.85, 2); ?></span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Taxes & Fees</span>
+                            <span><?php echo $currency_symbol . number_format($booking['total_amount'] * 0.15, 2); ?></span>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between fw-bold">
+                            <span>Total Amount</span>
+                            <span><?php echo $currency_symbol . number_format($booking['total_amount'], 2); ?></span>
+                        </div>
                     </div>
                 </div>
             </div>

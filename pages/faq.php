@@ -12,7 +12,8 @@ $faq_categories = [
     'check-in' => 'Check-in & Boarding',
     'payment' => 'Payment & Pricing',
     'cancellation' => 'Cancellations & Refunds',
-    'loyalty' => 'Loyalty Program'
+    'loyalty' => 'Loyalty Program',
+    'travel' => 'Travel Guides & Tips' // Add this new category
 ];
 
 // Initialize FAQs array
@@ -117,6 +118,24 @@ $faqs = [
         [
             'question' => 'Do miles expire?',
             'answer' => 'Yes, miles generally expire after 24 months of inactivity in your account. Any earning or redeeming activity will reset the expiration clock.'
+        ]
+    ],
+    'travel' => [
+        [
+            'question' => 'What are the visa requirements for international travel?',
+            'answer' => 'Visa requirements vary by country and your nationality. We recommend checking with the embassy or consulate of your destination country at least 3-4 weeks before travel. For many destinations, you may need a passport valid for at least 6 months beyond your stay. Some countries also require proof of onward travel and sufficient funds.'
+        ],
+        [
+            'question' => 'What should I pack for my flight?',
+            'answer' => 'Essential items include your travel documents (passport, ID, boarding pass), prescription medications, a change of clothes, toiletries (under 100ml for carry-on), electronic devices and chargers, snacks, and entertainment. For long flights, consider neck pillows, eye masks, and compression socks for comfort.'
+        ],
+        [
+            'question' => 'How early should I arrive at the airport?',
+            'answer' => 'For domestic flights, arrive 2 hours before departure. For international flights, arrive 3 hours before departure. During peak travel seasons or at busy airports, consider adding an additional 30 minutes.'
+        ],
+        [
+            'question' => 'What are the best restaurants and attractions in popular destinations?',
+            'answer' => 'We provide city guides for our most popular destinations with recommendations for dining, attractions, and local experiences. Check the travel guides section of our website or ask our customer service team for personalized recommendations based on your interests.'
         ]
     ]
 ];

@@ -361,6 +361,119 @@ if ($dbConfigExists) {
         </div>
     </section>
 
+    <!-- Popular Destinations Section -->
+    <section class="container my-5">
+        <h2 class="text-center mb-5">Popular Destinations</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card destination-card h-100">
+                    <img data-src="assets/images/tokyo.jpg" class="card-img-top lazy" alt="Tokyo" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+                    <div class="card-body">
+                        <h5 class="card-title">Tokyo, Japan</h5>
+                        <p class="card-text">Experience the unique blend of traditional culture and futuristic technology.</p>
+                        <p class="text-primary fw-bold">From $450</p>
+                        <a href="index.php?arrival_city=Tokyo" class="btn btn-outline-primary">Explore</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card destination-card h-100">
+                    <img data-src="assets/images/singapore.jpg" class="card-img-top lazy" alt="Singapore" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+                    <div class="card-body">
+                        <h5 class="card-title">Singapore</h5>
+                        <p class="card-text">Discover the garden city with its stunning architecture and delicious food.</p>
+                        <p class="text-primary fw-bold">From $320</p>
+                        <a href="index.php?arrival_city=Singapore" class="btn btn-outline-primary">Explore</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card destination-card h-100">
+                    <img data-src="assets/images/dubai.jpg" class="card-img-top lazy" alt="Dubai" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+                    <div class="card-body">
+                        <h5 class="card-title">Dubai, UAE</h5>
+                        <p class="card-text">Marvel at the modern wonders and luxury experiences in the desert city.</p>
+                        <p class="text-primary fw-bold">From $550</p>
+                        <a href="index.php?arrival_city=Dubai" class="btn btn-outline-primary">Explore</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="bg-light py-5">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-5 mb-4 mb-lg-0">
+                    <h2 class="display-6 fw-bold mb-3">Frequently Asked Questions</h2>
+                    <p class="lead">Find answers to commonly asked questions about our services, bookings, and flights.</p>
+                    <p class="mb-4">Our comprehensive FAQ section covers everything from booking procedures to baggage policies and flight changes.</p>
+                    <a href="pages/faq.php" class="btn btn-primary">View All FAQs</a>
+                </div>
+                <div class="col-lg-7">
+                    <div class="accordion" id="homeFaqAccordion">
+                        <div class="accordion-item border-0 mb-2 shadow-sm">
+                            <h2 class="accordion-header" id="homeHeading1">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#homeCollapse1" aria-expanded="false" aria-controls="homeCollapse1">
+                                    How do I book a flight?
+                            </button>
+                            </h2>
+                            <div id="homeCollapse1" class="accordion-collapse collapse" aria-labelledby="homeHeading1" data-bs-parent="#homeFaqAccordion">
+                                <div class="accordion-body">
+                                    You can book a flight through our website by using the search tool on our homepage. Enter your departure and arrival cities, dates, and number of passengers. Browse through the available options and select the flight that best suits your needs. Follow the booking process, provide passenger details, and make payment to confirm your reservation.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item border-0 mb-2 shadow-sm">
+                            <h2 class="accordion-header" id="homeHeading2">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#homeCollapse2" aria-expanded="false" aria-controls="homeCollapse2">
+                                    What is the baggage allowance?
+                            </button>
+                            </h2>
+                            <div id="homeCollapse2" class="accordion-collapse collapse" aria-labelledby="homeHeading2" data-bs-parent="#homeFaqAccordion">
+                                <div class="accordion-body">
+                                    Baggage allowance varies depending on your ticket class and destination. Generally, economy class passengers are allowed one carry-on bag (max. 7kg) and one checked bag (max. 23kg). Business and First Class passengers are allowed additional or heavier baggage. Please check your specific flight details for accurate information.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item border-0 mb-2 shadow-sm">
+                            <h2 class="accordion-header" id="homeHeading3">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#homeCollapse3" aria-expanded="false" aria-controls="homeCollapse3">
+                                    How can I check in online?
+                            </button>
+                            </h2>
+                            <div id="homeCollapse3" class="accordion-collapse collapse" aria-labelledby="homeHeading3" data-bs-parent="#homeFaqAccordion">
+                                <div class="accordion-body">
+                                    You can check in online through our website's "Web Check-in" section or through our mobile app. You'll need your booking reference number and the last name of the passenger. Online check-in opens 48 hours before flight departure and closes 1 hour before departure for domestic flights and 2 hours for international flights.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Newsletter Section -->
+    <section class="container my-5">
+        <div class="row">
+            <div class="col-md-6">
+                <h2 class="display-6 fw-bold mb-4">Subscribe to Our Newsletter</h2>
+                <p class="lead mb-4">Get the latest updates, flight deals, and travel tips straight to your inbox.</p>
+                <form action="subscribe.php" method="POST" class="rounded-3 overflow-hidden shadow">
+                    <div class="input-group">
+                        <input type="email" class="form-control border-0 py-3" placeholder="Enter your email address" aria-label="Email address" required>
+                        <button class="btn btn-primary px-4" type="submit">Subscribe</button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-6">
+                <img src="assets/images/newsletter.jpg" class="img-fluid" alt="Newsletter Image">
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <?php include 'includes/footer.php'; ?>
 

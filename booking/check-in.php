@@ -669,3 +669,18 @@ while ($eligible = $eligible_result->fetch_assoc()) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
+<!-- Check-in form and main content -->
+<div class="container py-5">
+    <!-- ...existing check-in code... -->
+    
+    <!-- Add FAQ Widget specifically for check-in -->
+    <div class="row mt-4">
+        <div class="col-lg-8 mx-auto">
+            <?php 
+            $category = 'check-in';
+            include '../includes/widgets/faq_widget.php'; 
+            ?>
+        </div>
+    </div>
+</div>

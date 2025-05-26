@@ -3,6 +3,8 @@ session_start();
 
 // Include database connection
 require_once '../db/db_config.php';
+require_once '../includes/currency_helper.php';
+$currency_symbol = getCurrencySymbol($conn);
 
 // Check if booking was successful or if booking_id was directly provided
 if ((!isset($_SESSION['booking_success']) && !isset($_GET['booking_id'])) || 
@@ -108,6 +110,22 @@ error_log($debug_info);
                             <div class="row">
                                 <div class="col-sm-6 text-sm-end text-center"><strong>Amount Paid:</strong></div>
                                 <div class="col-sm-6 text-sm-start text-center">$<?php echo number_format($booking['total_amount'], 2); ?></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Payment information display -->
+                        <div class="payment-info">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Payment Amount</span>
+                                <span class="fw-bold"><?php echo $currency_symbol . number_format($booking['total_amount'], 2); ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Payment Method</span>
+                                <span><?php echo ucfirst($booking['payment_method'] ?? 'Credit Card'); ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Payment Status</span>
+                                <span class="badge bg-success">Completed</span>
                             </div>
                         </div>
                         

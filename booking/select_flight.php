@@ -482,6 +482,58 @@ w-sm border-0">
                 </div>
             </div>
         </div>
+
+        <!-- Flight search results -->
+        <div class="container my-5">
+            <!-- FAQs about booking process -->
+            <div class="row mt-5">
+                <div class="col-12">
+                    <h3>Frequently Asked Questions</h3>
+                    <div class="accordion mt-3" id="bookingFaqAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="bookingHeading1">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bookingCollapse1" aria-expanded="false" aria-controls="bookingCollapse1">
+                                    How long are the displayed fares valid?
+                                </button>
+                            </h2>
+                            <div id="bookingCollapse1" class="accordion-collapse collapse" aria-labelledby="bookingHeading1" data-bs-parent="#bookingFaqAccordion">
+                                <div class="accordion-body">
+                                    The displayed fares are only guaranteed at the time of purchase. Prices may change due to availability, taxes, or other factors until your booking is confirmed and paid for.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="bookingHeading2">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bookingCollapse2" aria-expanded="false" aria-controls="bookingCollapse2">
+                                    What's included in the ticket price?
+                                </button>
+                            </h2>
+                            <div id="bookingCollapse2" class="accordion-collapse collapse" aria-labelledby="bookingHeading2" data-bs-parent="#bookingFaqAccordion">
+                                <div class="accordion-body">
+                                    The basic ticket price includes the seat fare, all mandatory taxes, and fees. Baggage allowances vary by fare class. Additional services like seat selection, extra baggage, and meals may be available for purchase separately.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="bookingHeading3">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bookingCollapse3" aria-expanded="false" aria-controls="bookingCollapse3">
+                                    Can I change my flight after booking?
+                                </button>
+                            </h2>
+                            <div id="bookingCollapse3" class="accordion-collapse collapse" aria-labelledby="bookingHeading3" data-bs-parent="#bookingFaqAccordion">
+                                <div class="accordion-body">
+                                    Yes, most tickets can be changed subject to fare rules and availability. Changes may incur a fee plus any fare difference. For details and to make changes, visit the "Manage Booking" section after purchasing your ticket.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <a href="../pages/faq.php" class="btn btn-outline-primary">View Complete FAQ</a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>    <!-- Footer -->
 ../includes/footer.php'; ?>
     <!-- Footer -->

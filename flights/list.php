@@ -4,6 +4,12 @@ session_start();
 // Include database connection
 require_once '../db/db_config.php';
 
+// Include currency helper
+require_once '../includes/currency_helper.php';
+
+// Get currency symbol
+$currency_symbol = getCurrencySymbol($conn);
+
 // Common function to get base URL
 if (!function_exists('getBaseUrl')) {
     function getBaseUrl() {
@@ -297,66 +303,54 @@ if ($future_flights_result && $future_flights_result->num_rows > 0) {
                     $arrival_time = $arrival->format('h:i A');
                     ?>
 
-                    <div class="col-12 mb-4">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <div class="row align-items-center">
-                                    <!-- Airline Info -->
-                                    <div class="col-md-2 text-center mb-3 mb-md-0">
-                                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($flight['airline']); ?>&background=0D6EFD&color=fff&size=60&bold=true&format=svg" 
-                                             alt="<?php echo htmlspecialchars($flight['airline']); ?>" 
-                                             class="mb-2" width="60" height="60">
-                                        <div class="fw-bold"><?php echo htmlspecialchars($flight['airline']); ?></div>
-                                        <div class="small text-muted"><?php echo htmlspecialchars($flight['flight_number']); ?></div>
-                                    </div>
-                                    
-                                    <!-- Flight Details -->
-                                    <div class="col-md-6 mb-3 mb-md-0">
-                                        <div class="row">
-                                            <div class="col-md-5">
-                                                <div class="fw-bold text-primary"><?php echo $departure_time; ?></div>
-                                                <div class="fw-bold"><?php echo htmlspecialchars($flight['departure_city']); ?></div>
-                                                <div class="small text-muted"><?php echo htmlspecialchars($flight['departure_airport']); ?></div>
-                                            </div>
-                                            <div class="col-md-2 text-center">
-                                                <div class="text-muted small"><?php echo $duration; ?></div>
-                                                <div class="flight-path">
-                                                    <i class="fas fa-plane text-primary"></i>
-                                                </div>
-                                                <div class="text-muted small">Direct</div>
-                                            </div>
-                                            <div class="col-md-5">
-                                                <div class="fw-bold text-primary"><?php echo $arrival_time; ?></div>
-                                                <div class="fw-bold"><?php echo htmlspecialchars($flight['arrival_city']); ?></div>
-                                                <div class="small text-muted"><?php echo htmlspecialchars($flight['arrival_airport']); ?></div>
-                                            </div>
+                    <!-- Flight Card -->
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <!-- Airline Info -->
+                                <div class="col-md-2 text-center mb-3 mb-md-0">
+                                    <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($flight['airline']); ?>&background=0D6EFD&color=fff&size=60&bold=true&format=svg" 
+                                         alt="<?php echo htmlspecialchars($flight['airline']); ?>" 
+                                         class="mb-2" width="60" height="60">
+                                    <div class="fw-bold"><?php echo htmlspecialchars($flight['airline']); ?></div>
+                                    <div class="small text-muted"><?php echo htmlspecialchars($flight['flight_number']); ?></div>
+                                </div>
+                                
+                                <!-- Flight Details -->
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <div class="row">
+                                        <div class="col-md-5">
+                                            <div class="fw-bold text-primary"><?php echo $departure_time; ?></div>
+                                            <div class="fw-bold"><?php echo htmlspecialchars($flight['departure_city']); ?></div>
+                                            <div class="small text-muted"><?php echo htmlspecialchars($flight['departure_airport']); ?></div>
                                         </div>
-                                        <div class="mt-2 text-center text-md-start">
-                                            <div class="small"><strong>Date:</strong> <?php echo $departure_date; ?></div>
-                                            <?php if (isset($flight['seats_available']) && $flight['seats_available'] > 0): ?>
-                                                <div class="small text-success"><?php echo $flight['seats_available']; ?> seats available</div>
-                                            <?php endif; ?>
+                                        <div class="col-md-2 text-center">
+                                            <div class="text-muted small"><?php echo $duration; ?></div>
+                                            <div class="flight-path">
+                                                <i class="fas fa-plane text-primary"></i>
+                                            </div>
+                                            <div class="text-muted small">Direct</div>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <div class="fw-bold text-primary"><?php echo $arrival_time; ?></div>
+                                            <div class="fw-bold"><?php echo htmlspecialchars($flight['arrival_city']); ?></div>
+                                            <div class="small text-muted"><?php echo htmlspecialchars($flight['arrival_airport']); ?></div>
                                         </div>
                                     </div>
-                                    
-                                    <!-- Pricing and Action -->
-                                    <div class="col-md-3 text-center text-md-end">
-                                        <div class="h4 text-primary mb-2">$<?php echo number_format($flight['base_fare'], 2); ?></div>
-                                        <div class="text-muted small mb-2">base fare per passenger</div>
-                                        <div class="text-muted small mb-3">Total: $<?php echo number_format($flight['price'], 2); ?></div>
-                                        
-                                        <a href="flight_details.php?id=<?php echo $flight['flight_id']; ?>&passengers=<?php echo $default_passengers; ?>" class="btn btn-outline-primary btn-sm mb-2 w-100">
-                                            <i class="fas fa-info-circle me-1"></i>Details
-                                        </a>
-                                        
-                                        <a href="../booking/select_flight.php?flight_id=<?php echo $flight['flight_id']; ?>&passengers=<?php echo $default_passengers; ?>" 
-                                           class="btn btn-primary btn-sm w-100 <?php echo ($flight['available_seats'] < $default_passengers) ? 'disabled' : ''; ?>">
-                                            <?php if ($flight['available_seats'] < $default_passengers): ?>
-                                                Sold Out
-                                            <?php else: ?>
-                                                Book Now <i class="fas fa-arrow-right ms-1"></i>
-                                            <?php endif; ?>
-                                        </a>
+                                    <div class="mt-2 text-center text-md-start">
+                                        <div class="small"><strong>Date:</strong> <?php echo $departure_date; ?></div>
+                                        <?php if (isset($flight['seats_available']) && $flight['seats_available'] > 0): ?>
+                                            <div class="small text-success"><?php echo $flight['seats_available']; ?> seats available</div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                
+                                <!-- Pricing and Action -->
+                                <div class="col-md-2 text-md-end">
+                                    <div class="fs-5 fw-bold"><?php echo $currency_symbol . number_format($flight['price'], 2); ?></div>
+                                    <small class="text-muted"><?php echo $flight['available_seats']; ?> seats left</small>
+                                    <div class="mt-2">
+                                        <a href="flight_details.php?id=<?php echo $flight['flight_id']; ?>" class="btn btn-primary">View Details</a>
                                     </div>
                                 </div>
                             </div>

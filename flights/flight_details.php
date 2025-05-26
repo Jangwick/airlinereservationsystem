@@ -1,16 +1,14 @@
 <?php
 session_start();
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../auth/login.php");
-    exit();
-}
-
 // Include database connection
 require_once '../db/db_config.php';
 
-$user_id = $_SESSION['user_id'];
+// Include currency helper
+require_once '../includes/currency_helper.php';
+$currency_symbol = getCurrencySymbol($conn);
+
+// Get flight ID from URL
 $flight_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 // Validate flight ID
@@ -165,7 +163,7 @@ function formatStatus($status) {
             </div>
             <div class="col-md-4 text-md-end align-self-center">
                 <?php if (!$is_past && ($flight['available_seats'] ?? 0) > 0): ?>
-                    <a href="../booking/select_flight.php?flight_id=<?php echo $flight_id; ?>&passengers=<?php echo $passenger_count; ?>" class="btn btn-primary">
+                    <a href="../booking/select_flight.php?flight_id=<?php echo $flight_id; ?>&passengers=<?php echo $passenger_count; ?>" class="btn btn-primary" id="booking-link">
                         <i class="fas fa-ticket-alt me-2"></i>Book This Flight
                     </a>
                 <?php endif; ?>
@@ -383,6 +381,22 @@ function formatStatus($status) {
                             </select>
                         </div>
                         
+                        <div class="pricing-details">
+                            <div class="fw-bold mb-1">Price Details</div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span>Base Fare</span>
+                                <span><?php echo $currency_symbol . number_format($flight['base_fare'], 2); ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span>Taxes & Fees</span>
+                                <span><?php echo $currency_symbol . number_format($flight['taxes_fees'], 2); ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between fw-bold mt-2">
+                                <span>Total per passenger</span>
+                                <span><?php echo $currency_symbol . number_format($flight['price'], 2); ?></span>
+                            </div>
+                        </div>
+                        
                         <div class="table-responsive">
                             <table class="table table-borderless mb-0">
                                 <tbody>
@@ -413,7 +427,7 @@ function formatStatus($status) {
                         <div class="mt-4">
                             <?php if (!$is_past): ?>
                                 <?php if (($flight['available_seats'] ?? 0) > 0): ?>
-                                    <a href="../booking/select_flight.php?flight_id=<?php echo $flight_id; ?>&passengers=<?php echo $passenger_count; ?>" class="btn btn-primary w-100 mb-3">
+                                    <a href="../booking/select_flight.php?flight_id=<?php echo $flight_id; ?>&passengers=<?php echo $passenger_count; ?>" class="btn btn-primary w-100 mb-3" id="booking-link">
                                         <i class="fas fa-ticket-alt me-2"></i>Book Now
                                     </a>
                                     <div class="text-muted small text-center">
@@ -476,6 +490,12 @@ function formatStatus($status) {
                         </div>
                     </div>
                 </div>
+                
+                <!-- Add FAQ Widget -->
+                <?php 
+                $category = 'booking';
+                include '../includes/widgets/faq_widget.php'; 
+                ?>
             </div>
         </div>
     </div>
@@ -494,14 +514,26 @@ function formatStatus($status) {
             const taxesFees = <?php echo max(1, $flight['taxes_fees']); ?>;
             
             document.getElementById('passenger-count').textContent = count;
-            document.getElementById('total-price').textContent = '$' + (basePrice * count).toFixed(2);
+            document.getElementById('total-price').textContent = '<?php echo $currency_symbol; ?>' + (basePrice * count).toFixed(2);
             
             // Update booking link
-            const bookingLinks = document.querySelectorAll('a[href*="select_flight.php"]');
-            bookingLinks.forEach(link => {
-                const href = link.getAttribute('href');
-                link.setAttribute('href', href.replace(/passengers=\d+/, 'passengers=' + count));
-            });
+            const bookingLink = document.getElementById('booking-link');
+            if (bookingLink) {
+                const currentHref = bookingLink.getAttribute('href').split('&passengers=')[0];
+                bookingLink.setAttribute('href', currentHref + '&passengers=' + count);
+            }
+            
+            // Update fare breakdown if it exists
+            const baseFareElement = document.getElementById('base-fare');
+            const taxesElement = document.getElementById('taxes-fees');
+            
+            if (baseFareElement) {
+                baseFareElement.textContent = '<?php echo $currency_symbol; ?>' + (baseFare * count).toFixed(2);
+            }
+            
+            if (taxesElement) {
+                taxesElement.textContent = '<?php echo $currency_symbol; ?>' + (taxesFees * count).toFixed(2);
+            }
         }
     </script>
 </body>

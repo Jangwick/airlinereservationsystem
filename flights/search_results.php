@@ -4,6 +4,9 @@ session_start();
 // Include database connection
 require_once '../db/db_config.php';
 
+// Include currency helper
+require_once '../includes/currency_helper.php';
+
 // Common function to get base URL
 if (!function_exists('getBaseUrl')) {
     function getBaseUrl() {
@@ -13,6 +16,9 @@ if (!function_exists('getBaseUrl')) {
     }
 }
 $baseUrl = getBaseUrl();
+
+// Get currency symbol
+$currency_symbol = getCurrencySymbol($conn);
 
 // Initialize variables
 $flights = [];
@@ -523,9 +529,9 @@ function getCityImage($city, $cityImages, $baseUrl) {
                                             
                                             <div class="col-md-3 text-center text-md-end">
                                                 <!-- Price and Booking -->
-                                                <div class="h4 text-primary mb-2">$<?php echo number_format($flight['base_fare'] ?? ($flight['price'] * 0.85), 2); ?></div>
+                                                <div class="h4 text-primary mb-2"><?php echo $currency_symbol . number_format($flight['base_fare'] ?? ($flight['price'] * 0.85), 2); ?></div>
                                                 <div class="text-muted small mb-2">base fare per passenger</div>
-                                                <div class="text-muted small mb-3">Total: $<?php echo number_format($flight['price'], 2); ?></div>
+                                                <div class="text-muted small mb-3">Total: <?php echo $currency_symbol . number_format($flight['price'], 2); ?></div>
                                                 
                                                 <a href="../booking/select_flight.php?flight_id=<?php echo $flight['flight_id']; ?>&passengers=<?php echo $passengers; ?>" 
                                                    class="btn btn-primary btn-sm w-100">Select Flight</a>
